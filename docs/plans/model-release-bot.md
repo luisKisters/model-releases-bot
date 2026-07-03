@@ -130,13 +130,13 @@ Hard-fail benchmark conditions: Cohere included while unselected, unsupported Ge
 - `npm run radar:eval -- --fixtures tests/fixtures/release-benchmark.json --offline --max-cost-usd 0`
 
 ### Task 1: Repository And Remote Execution Setup
-- [ ] Confirm the agent is working on a branch based on `origin/codex/model-release-radar`; do not restart from empty `main`.
-- [ ] Add `.ralphex/config` for this repo with `default_branch = codex/model-release-radar`, `plans_dir = docs/plans`, `external_review_tool = codex`, and completion behavior suitable for remote execution.
-- [ ] Update `.env.example` to document `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY`, `OPENROUTER_KIMI_MODEL`, `ARTIFICIAL_ANALYSIS_API_KEY`, `MODEL_RELEASES_MAX_COST_USD`, destination Telegram variables, and browser/eval toggles without real values.
-- [ ] Confirm `.gitignore` covers `.env`, `.env.*`, browser artifacts, cost reports, and local caches while keeping `.env.example` tracked.
-- [ ] Add npm scripts for `radar:eval`, `radar:smoke`, and any required browser install helper without changing the existing `test`, `typecheck`, or `build` commands.
-- [ ] Update `README.md` to explain selected labs, dedicated-article gating, remote-secret expectations, offline eval, live smoke, Telegram dry-run behavior, and the rule that secrets are never committed.
-- [ ] Run the validation commands that can pass after this setup task and record any intentional skips.
+- [x] Confirm the agent is working on a branch based on `origin/codex/model-release-radar`; do not restart from empty `main`.
+- [x] Add `.ralphex/config` for this repo with `default_branch = codex/model-release-radar`, `plans_dir = docs/plans`, `external_review_tool = codex`, and completion behavior suitable for remote execution.
+- [x] Update `.env.example` to document `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY`, `OPENROUTER_KIMI_MODEL`, `ARTIFICIAL_ANALYSIS_API_KEY`, `MODEL_RELEASES_MAX_COST_USD`, destination Telegram variables, and browser/eval toggles without real values.
+- [x] Confirm `.gitignore` covers `.env`, `.env.*`, browser artifacts, cost reports, and local caches while keeping `.env.example` tracked.
+- [x] Add npm scripts for `radar:eval`, `radar:smoke`, and any required browser install helper without changing the existing `test`, `typecheck`, or `build` commands.
+- [x] Update `README.md` to explain selected labs, dedicated-article gating, remote-secret expectations, offline eval, live smoke, Telegram dry-run behavior, and the rule that secrets are never committed.
+- [x] Run the validation commands that can pass after this setup task and record any intentional skips.
 
 ### Task 2: Source Registry And Article Gate
 - [ ] Implement selected-lab source configuration for OpenAI, Anthropic, Google Gemini/DeepMind, Mistral, DeepSeek, Meta/Llama, xAI, NVIDIA Nemotron, Deepgram, ElevenLabs, and AssemblyAI.
