@@ -1,0 +1,12 @@
+# model-releases-bot Ralphex/executr config
+# Priority: CLI flags > this file > ~/.config/ralphex/config > embedded defaults
+
+external_review_tool = codex
+default_branch = codex/model-release-radar
+plans_dir = docs/plans
+finalize_enabled = true
+move_plan_on_completion = true
+
+# This repo should be safe to run in a fresh worktree because secrets are supplied
+# by environment or remote secret storage, not by untracked local files.
+use_worktree = true

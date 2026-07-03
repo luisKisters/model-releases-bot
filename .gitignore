@@ -12,3 +12,7 @@ convex/.env.local
 .vercel
 .env*
 !.env.example
+playwright-report/
+test-results/
+artifacts/
+cost-reports/
