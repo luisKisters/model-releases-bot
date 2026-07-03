@@ -11,6 +11,9 @@
     "test:watch": "vitest",
     "convex:dev": "convex dev",
     "convex:codegen": "convex codegen",
+    "radar:eval": "node scripts/radar-eval.mjs",
+    "radar:smoke": "node scripts/radar-smoke.mjs",
+    "radar:browser:install": "npx playwright install chromium",
     "telegram:test": "node scripts/send-telegram-test.mjs",
     "telegram:chats": "node scripts/list-telegram-chats.mjs"
   },

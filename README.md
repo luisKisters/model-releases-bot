@@ -1,8 +1,24 @@
-# No-Key Model Release Radar
+# Model Release Radar
 
-A small Next.js + Convex app that watches public model-release surfaces and sends Telegram alerts when high-confidence release signals change.
+A Next.js + Convex app that watches selected AI labs and sends Telegram alerts for verified model releases.
 
-The bot does not require provider API keys. It uses public RSS/Atom feeds, markdown docs, HTML pages, Hugging Face org APIs, GitHub Atom/API-light sources, public catalog JSON, and public benchmark pages.
+The target behavior is stricter than the original v1 radar: only selected labs are eligible, and a release is sendable only when there is an official dedicated model-release article. Discovery feeds, docs, changelogs, catalogs, and benchmark pages can provide evidence, but they cannot bypass the dedicated-article gate.
+
+## Selected Labs
+
+- OpenAI
+- Anthropic
+- Google Gemini / DeepMind
+- Mistral
+- DeepSeek
+- Meta / Llama
+- xAI
+- NVIDIA Nemotron only
+- Deepgram
+- ElevenLabs
+- AssemblyAI
+
+Cohere, Qwen, Kimi, Z.ai, MiniMax, Xiaomi MiMo, generic Hugging Face discovery, OpenRouter catalogs, and broad NVIDIA announcements are not sendable release sources unless the product config explicitly changes later. Kimi K2.6 is used as the final-message writer through OpenRouter; it is not a monitored lab by default.
 
 ## Setup
 
@@ -31,7 +47,15 @@ The bot does not require provider API keys. It uses public RSS/Atom feeds, markd
    ```bash
    TELEGRAM_BOT_TOKEN=123456:abc
    TELEGRAM_CHAT_ID=123456789
+   RADAR_TELEGRAM_SEND_ENABLED=false
+   DEEPSEEK_API_KEY=...
+   OPENROUTER_API_KEY=...
+   OPENROUTER_KIMI_MODEL=moonshotai/kimi-k2.6
+   ARTIFICIAL_ANALYSIS_API_KEY=...
+   MODEL_RELEASES_MAX_COST_USD=1.00
    ```
+
+   Keep real keys in `.env.local`, Convex env, GitHub Actions secrets, or the executor's secret store. Never commit real API keys or write them into Ralphex progress files.
 
 5. If you do not know the chat id yet, send your bot a message in Telegram, then run:
 
@@ -58,14 +82,33 @@ The bot does not require provider API keys. It uses public RSS/Atom feeds, markd
    npm run dev
    ```
 
-Convex runs the real poller every 5 minutes through `convex/crons.ts`.
+Convex runs the poller every 5 minutes through `convex/crons.ts`.
 
-## What v1 Watches
+## Evaluation And Smoke Commands
 
-- Providers: OpenAI, Anthropic, Google/Gemini, xAI, Meta/Llama, Mistral, DeepSeek, Qwen, Kimi, Cohere, Z.ai, MiniMax, Xiaomi MiMo, NVIDIA.
-- Aggregators: Artificial Analysis, OpenRouter, Hugging Face global new models, GitHub Atom feeds.
+Offline eval is deterministic and does not spend provider tokens:
 
-Authenticated provider model-list APIs are intentionally excluded from v1.
+```bash
+npm run radar:eval -- --fixtures tests/fixtures/release-benchmark.json --offline --max-cost-usd 0
+```
+
+Live smoke is dry-run by default. The Task 1 implementation only checks configuration shape; later plan tasks add real fetching, browser verification, system-card reading, benchmark comparison, and LLM calls.
+
+```bash
+npm run radar:smoke -- --dry-run --labs openai,mistral --max-cost-usd 1
+```
+
+Install browser dependencies before live browser verification:
+
+```bash
+npm run radar:browser:install
+```
+
+## Ralphex / Executr Handoff
+
+The executable plan lives at `docs/plans/model-release-bot.md`. The repo-level `.ralphex/config` points at the existing implementation branch `codex/model-release-radar`.
+
+This environment did not have a local `ralphex` or `executr` binary on `PATH`, and the GitHub repository has no Actions workflow that auto-runs plans. A runner must be started externally against the plan file.
 
 ## Commands
 
@@ -73,5 +116,7 @@ Authenticated provider model-list APIs are intentionally excluded from v1.
 npm run test
 npm run typecheck
 npm run build
+npm run radar:eval -- --fixtures tests/fixtures/release-benchmark.json --offline --max-cost-usd 0
+npm run radar:smoke -- --dry-run
 npm run convex:dev
 ```
