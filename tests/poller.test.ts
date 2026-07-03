@@ -7,7 +7,7 @@ const source: SourceConfig = {
   sourceId: "openai-test",
   provider: "OpenAI",
   label: "OpenAI test",
-  url: "https://example.com/feed",
+  url: "https://openai.com/news/rss.xml",
   parser: "rssAtom",
   confidence: "official",
   signalType: "release_note",
@@ -20,7 +20,7 @@ describe("pollSource", () => {
   it("creates parsed signals for changed content", async () => {
     const fetchImpl = vi.fn(async () => {
       return new Response(
-        `<rss><channel><item><title>Released GPT-5.3</title><link>https://example.com/release</link></item></channel></rss>`,
+        `<rss><channel><item><title>Released GPT-5.3</title><link>https://openai.com/index/gpt-5-3/</link></item></channel></rss>`,
         { status: 200, headers: { etag: "abc" } },
       );
     });
