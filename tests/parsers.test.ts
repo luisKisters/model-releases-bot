@@ -6,7 +6,7 @@ const baseSource: SourceConfig = {
   sourceId: "test",
   provider: "OpenAI",
   label: "Test source",
-  url: "https://example.com/feed",
+  url: "https://openai.com/news/rss.xml",
   parser: "rssAtom",
   confidence: "official",
   signalType: "release_note",
@@ -19,7 +19,7 @@ describe("parseSourceContent", () => {
   it("parses RSS items and extracts model names", () => {
     const signals = parseSourceContent(
       baseSource,
-      `<rss><channel><item><title>Released GPT-5.2 to the API</title><link>https://example.com/gpt</link><description>New model release.</description></item></channel></rss>`,
+      `<rss><channel><item><title>Released GPT-5.2 to the API</title><link>https://openai.com/index/gpt-5-2/</link><description>New model release.</description></item></channel></rss>`,
     );
 
     expect(signals).toHaveLength(1);

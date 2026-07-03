@@ -139,12 +139,12 @@ Hard-fail benchmark conditions: Cohere included while unselected, unsupported Ge
 - [x] Run the validation commands that can pass after this setup task and record any intentional skips.
 
 ### Task 2: Source Registry And Article Gate
-- [ ] Implement selected-lab source configuration for OpenAI, Anthropic, Google Gemini/DeepMind, Mistral, DeepSeek, Meta/Llama, xAI, NVIDIA Nemotron, Deepgram, ElevenLabs, and AssemblyAI.
-- [ ] Remove or disable default notifications for Cohere, Qwen, Kimi, Z.ai, MiniMax, Xiaomi MiMo, Hugging Face global new models, OpenRouter catalog, and broad Artificial Analysis catalog sources unless they are used only as non-sendable verification evidence.
-- [ ] Replace broad NVIDIA sources with Nemotron-only official sources and reject non-Nemotron NVIDIA articles.
+- [x] Implement selected-lab source configuration for OpenAI, Anthropic, Google Gemini/DeepMind, Mistral, DeepSeek, Meta/Llama, xAI, NVIDIA Nemotron, Deepgram, ElevenLabs, and AssemblyAI.
+- [x] Remove or disable default notifications for Cohere, Qwen, Kimi, Z.ai, MiniMax, Xiaomi MiMo, Hugging Face global new models, OpenRouter catalog, and broad Artificial Analysis catalog sources unless they are used only as non-sendable verification evidence.
+- [x] Replace broad NVIDIA sources with Nemotron-only official sources and reject non-Nemotron NVIDIA articles.
 - [ ] Implement feed and scrape adapters that normalize candidates into lab, title, URL, date, source type, source confidence, and raw metadata.
-- [ ] Implement `article_gate` rules for selected lab, official domain, dedicated article page, new model-release language, and lab-specific constraints.
-- [ ] Add rejection tests for Cohere, unsupported Gemini source types, broad NVIDIA non-Nemotron pages, generic product updates, and model-card-only candidates.
+- [x] Implement `article_gate` rules for selected lab, official domain, dedicated article page, new model-release language, and lab-specific constraints.
+- [x] Add rejection tests for Cohere, unsupported Gemini source types, broad NVIDIA non-Nemotron pages, generic product updates, and model-card-only candidates.
 - [ ] Add positive gate tests using fixture metadata for at least two model-release articles per selected lab where available, with explicit fixture waivers when official history cannot supply two.
 - [ ] Run the validation commands and fix failures.
 

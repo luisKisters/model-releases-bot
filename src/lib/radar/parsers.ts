@@ -1,4 +1,5 @@
 import type { ParsedSignal, SourceConfig } from "./types";
+import { evaluateArticleGate } from "./articleGate";
 import { stableFingerprint } from "./hash";
 import { decodeEntities, extractModelNames, normalizeWhitespace, stripTags } from "./text";
 
@@ -33,6 +34,12 @@ function signalFromParts(
   const cleanedTitle = normalizeWhitespace(title).slice(0, 220) || `${source.label} changed`;
   const cleanedSummary = summary ? normalizeWhitespace(summary).slice(0, 500) : undefined;
   const modelNames = extractModelNames(`${cleanedTitle} ${cleanedSummary ?? ""}`);
+  const articleGate = evaluateArticleGate({
+    provider: source.provider,
+    title: cleanedTitle,
+    url: url || source.url,
+    source,
+  });
 
   return {
     title: cleanedTitle,
@@ -42,7 +49,7 @@ function signalFromParts(
     fingerprint: stableFingerprint([source.provider, source.sourceId, cleanedTitle, url || source.url]),
     confidence: source.confidence,
     signalType: source.signalType,
-    shouldNotify: source.notify && source.confidence !== "weak_page_change",
+    shouldNotify: source.notify && articleGate.shouldSend,
   };
 }
 
