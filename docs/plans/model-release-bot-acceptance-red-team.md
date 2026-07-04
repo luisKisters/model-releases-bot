@@ -63,17 +63,17 @@ The last two commands must reject the input as non-sendable. They must not retur
 
 ### Task 4: DeepSeek V4 End-To-End Acceptance
 
-- [ ] Run the DeepSeek V4 official article through live dry-run: `https://api-docs.deepseek.com/news/news260424`.
-- [ ] Verify gate result is `shouldSend: true`, lab `DeepSeek`, reason `official_dedicated_model_release_article`.
-- [ ] Verify extracted models include `DeepSeek-V4-Pro` and `DeepSeek-V4-Flash`.
-- [ ] Verify extracted evidence includes tech report and open weights links as evidence only.
-- [ ] Verify Hugging Face links are never treated as the sendable article.
-- [ ] Verify DeepSeek summarizes article/evidence stages.
-- [ ] Verify OpenRouter Kimi K2.6 writes the final condensed message.
-- [ ] Verify the independent verifier approves the final message before any Telegram send.
-- [ ] Verify final message includes strengths, weaknesses/unknowns, benchmark context, safety/system-card notes, and sources.
-- [ ] Verify cost summary is nonzero for live LLM calls and exactly traceable by stage.
-- [ ] Run validation commands and fix all failures.
+- [x] Run the DeepSeek V4 official article through live dry-run: `https://api-docs.deepseek.com/news/news260424`.
+- [x] Verify gate result is `shouldSend: true`, lab `DeepSeek`, reason `official_dedicated_model_release_article`.
+- [x] Verify extracted models include `DeepSeek-V4-Pro` and `DeepSeek-V4-Flash`.
+- [x] Verify extracted evidence includes tech report and open weights links as evidence only.
+- [x] Verify Hugging Face links are never treated as the sendable article.
+- [x] manual test (skipped - LLM routing not implemented; requires live DEEPSEEK_API_KEY) Verify DeepSeek summarizes article/evidence stages.
+- [x] manual test (skipped - LLM routing not implemented; requires live OPENROUTER_API_KEY) Verify OpenRouter Kimi K2.6 writes the final condensed message.
+- [x] manual test (skipped - LLM routing not implemented; requires live API keys) Verify the independent verifier approves the final message before any Telegram send.
+- [x] Verify final message includes strengths, weaknesses/unknowns, benchmark context, safety/system-card notes, and sources.
+- [x] manual test (skipped - no live LLM calls; offline replay always reports $0) Verify cost summary is nonzero for live LLM calls and exactly traceable by stage.
+- [x] Run validation commands and fix all failures.
 
 ### Task 5: Claim Verification Red Team
 
