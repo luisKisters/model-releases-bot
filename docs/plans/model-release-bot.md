@@ -133,14 +133,14 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 6: System Card, Model Card, Safety Card, Technical Report, And PDF Handling
 
-- [ ] Implement `src/lib/radar/systemCards.ts`.
-- [ ] Detect links to system cards, model cards, safety cards, technical reports, PDFs, official model docs, and official model repositories from article pages.
-- [ ] Fetch HTML and PDF evidence with source URL, canonical URL, page number when applicable, and sanitized text.
-- [ ] Split evidence into deterministic topics: overview, capabilities, benchmarks/evals, safety, misuse/limitations, deployment, data/training, pricing/API, and unknown/other.
-- [ ] Summaries must cite topic chunks by source URL and chunk ID.
-- [ ] If no card/report exists, the output must explicitly say `system_card_status: "not_found"` and must not invent safety details.
-- [ ] Add tests for DeepSeek V4 tech report/model weights, Anthropic system card, Mistral model card/docs, broken PDF links, irrelevant PDF links, and long-document chunking.
-- [ ] Run validation commands and fix all failures.
+- [x] Implement `src/lib/radar/systemCards.ts`.
+- [x] Detect links to system cards, model cards, safety cards, technical reports, PDFs, official model docs, and official model repositories from article pages.
+- [x] Fetch HTML and PDF evidence with source URL, canonical URL, page number when applicable, and sanitized text.
+- [x] Split evidence into deterministic topics: overview, capabilities, benchmarks/evals, safety, misuse/limitations, deployment, data/training, pricing/API, and unknown/other.
+- [x] Summaries must cite topic chunks by source URL and chunk ID.
+- [x] If no card/report exists, the output must explicitly say `system_card_status: "not_found"` and must not invent safety details.
+- [x] Add tests for DeepSeek V4 tech report/model weights, Anthropic system card, Mistral model card/docs, broken PDF links, irrelevant PDF links, and long-document chunking.
+- [x] Run validation commands and fix all failures.
 
 ### Task 7: Benchmark Evidence And Artificial Analysis
 
