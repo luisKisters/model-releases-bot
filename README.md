@@ -110,10 +110,12 @@ npm run radar:browser:install
 
 The executable plans live in `docs/plans/`:
 
-- `docs/plans/model-release-bot.md` is the primary implementation plan.
-- `docs/plans/model-release-bot-acceptance-red-team.md` is the acceptance/red-team plan that blocks completion if any original requirement is only partial.
+- `docs/plans/model-release-bot.md` — primary implementation plan. Run this first.
+- `docs/plans/model-release-bot-acceptance-red-team.md` — acceptance/red-team plan. Run this after or in parallel with the implementation plan. It blocks completion if any original requirement is only partial.
 
-The repo-level `.ralphex/config` points at `main` and uses `plans_dir = docs/plans`, so an executr/ralphex-compatible runner should discover both plan files.
+The repo-level `.ralphex/config` sets `branch = model-release-bot` and `plans_dir = docs/plans`, so an executr/ralphex-compatible runner should discover both plan files from the correct branch.
+
+Do NOT run plans from `docs/plans/completed/` — those are archived and will not be picked up by executr. Do NOT run any older or partial plans that may exist elsewhere in the repository history.
 
 This environment did not have a local `ralphex` or `executr` binary on `PATH`, and the GitHub repository has no Actions workflow that auto-runs plans. A runner must be started externally against the plan directory.
 

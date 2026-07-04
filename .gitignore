@@ -16,3 +16,10 @@ playwright-report/
 test-results/
 artifacts/
 cost-reports/
+# Raw downloaded articles, PDFs, system cards, and document caches
+downloads/
+document-cache/
+raw-documents/
+browser-snapshots/
+*.snap.html
+*.snap.pdf

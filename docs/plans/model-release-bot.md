@@ -80,12 +80,12 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 1: Executr And Repository Setup
 
-- [ ] Update `.ralphex/config` so executr checks out the current implementation branch, uses `plans_dir = docs/plans`, and points operators to this exact plan path.
-- [ ] Confirm `docs/plans/model-release-bot.md` is the primary implementation plan and `docs/plans/model-release-bot-acceptance-red-team.md` is the paired acceptance plan.
-- [ ] Update `README.md` to say executr/ralphex should run `docs/plans/model-release-bot.md` and should not run old partial plans.
-- [ ] Confirm `.gitignore` prevents committing `.env`, `.env.*`, Convex local env files, browser artifacts, cost reports, and raw downloaded documents.
-- [ ] Ensure `.env.example` documents all required keys without real values: `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY`, `OPENROUTER_KIMI_MODEL`, `ARTIFICIAL_ANALYSIS_API_KEY`, `MODEL_RELEASES_MAX_COST_USD`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, and Telegram send toggle.
-- [ ] Run all validation commands that can run without secrets and record exact skips for secret-gated commands.
+- [x] Update `.ralphex/config` so executr checks out the current implementation branch, uses `plans_dir = docs/plans`, and points operators to this exact plan path.
+- [x] Confirm `docs/plans/model-release-bot.md` is the primary implementation plan and `docs/plans/model-release-bot-acceptance-red-team.md` is the paired acceptance plan.
+- [x] Update `README.md` to say executr/ralphex should run `docs/plans/model-release-bot.md` and should not run old partial plans.
+- [x] Confirm `.gitignore` prevents committing `.env`, `.env.*`, Convex local env files, browser artifacts, cost reports, and raw downloaded documents.
+- [x] Ensure `.env.example` documents all required keys without real values: `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY`, `OPENROUTER_KIMI_MODEL`, `ARTIFICIAL_ANALYSIS_API_KEY`, `MODEL_RELEASES_MAX_COST_USD`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, and Telegram send toggle.
+- [x] Run all validation commands that can run without secrets and record exact skips for secret-gated commands.
 
 ### Task 2: Source Registry, Discovery, And Stale Source Cleanup
 
