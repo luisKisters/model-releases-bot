@@ -193,17 +193,17 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 11: Convex Persistence And Scheduled Polling
 
-- [ ] Before touching Convex code, read `convex/_generated/ai/guidelines.md`.
-- [ ] Update `convex/schema.ts` with tables for release candidates, article snapshots, evidence documents/chunks, benchmark evidence, LLM usage/costs, verified release notes, verifier findings, and notifications.
-- [ ] Use validators for every Convex function argument.
-- [ ] Keep actions separate from queries/mutations when Node APIs are needed.
-- [ ] Never use `ctx.db` in Convex actions.
-- [ ] Use `internal` function references for cron scheduling.
-- [ ] Scheduled polling must create candidates, verify releases, persist evidence/costs, and send only verified release notes.
-- [ ] Baseline source snapshots must never send old releases on first run.
-- [ ] Duplicate detection must use canonical article URL and stable release identity, not only title strings.
-- [ ] Add Convex tests using `convex-test` for source sync, stale-source disable, candidate persistence, duplicate suppression, verified send, unverified block, and notification records.
-- [ ] Run validation commands and fix all failures.
+- [x] Before touching Convex code, read `convex/_generated/ai/guidelines.md`.
+- [x] Update `convex/schema.ts` with tables for release candidates, article snapshots, evidence documents/chunks, benchmark evidence, LLM usage/costs, verified release notes, verifier findings, and notifications.
+- [x] Use validators for every Convex function argument.
+- [x] Keep actions separate from queries/mutations when Node APIs are needed.
+- [x] Never use `ctx.db` in Convex actions.
+- [x] Use `internal` function references for cron scheduling.
+- [x] Scheduled polling must create candidates, verify releases, persist evidence/costs, and send only verified release notes.
+- [x] Baseline source snapshots must never send old releases on first run.
+- [x] Duplicate detection must use canonical article URL and stable release identity, not only title strings.
+- [x] Add Convex tests using `convex-test` for source sync, stale-source disable, candidate persistence, duplicate suppression, verified send, unverified block, and notification records.
+- [x] Run validation commands and fix all failures.
 
 ### Task 12: Evaluation Harness And Scoring
 
