@@ -219,16 +219,16 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 13: Live Smoke CLI
 
-- [ ] Replace replay-only `scripts/radar-smoke.mjs` with a real live smoke command.
-- [ ] Support `--release-url`, `--labs`, `--limit-per-lab`, `--dry-run`, `--no-dry-run`, `--send-telegram`, `--max-cost-usd`, `--require-browser`, `--require-llm`, and `--require-artificial-analysis`.
-- [ ] `--release-url` must run the full pipeline for the supplied official article URL.
-- [ ] `--labs all --limit-per-lab 2` must attempt up to two releases per selected lab.
-- [ ] Dry run must run the full fetch/extract/LLM/verifier path but must not send Telegram.
-- [ ] Missing secrets must return structured skip unless the corresponding `--require-*` flag is set.
-- [ ] Network failures, source shape changes, browser dependency failures, LLM failures, benchmark provider failures, and Telegram failures must have distinct structured reasons.
-- [ ] Live smoke must record exact provider usage and estimated cost.
-- [ ] Add tests for CLI arg parsing, dry-run behavior, send toggle behavior, max-cost abort, structured skips, and DeepSeek V4 URL run.
-- [ ] Run validation commands and fix all failures.
+- [x] Replace replay-only `scripts/radar-smoke.mjs` with a real live smoke command.
+- [x] Support `--release-url`, `--labs`, `--limit-per-lab`, `--dry-run`, `--no-dry-run`, `--send-telegram`, `--max-cost-usd`, `--require-browser`, `--require-llm`, and `--require-artificial-analysis`.
+- [x] `--release-url` must run the full pipeline for the supplied official article URL.
+- [x] `--labs all --limit-per-lab 2` must attempt up to two releases per selected lab.
+- [x] Dry run must run the full fetch/extract/LLM/verifier path but must not send Telegram.
+- [x] Missing secrets must return structured skip unless the corresponding `--require-*` flag is set.
+- [x] Network failures, source shape changes, browser dependency failures, LLM failures, benchmark provider failures, and Telegram failures must have distinct structured reasons.
+- [x] Live smoke must record exact provider usage and estimated cost.
+- [x] Add tests for CLI arg parsing, dry-run behavior, send toggle behavior, max-cost abort, structured skips, and DeepSeek V4 URL run.
+- [x] Run validation commands and fix all failures.
 
 ### Task 14: DeepSeek V4 Required Acceptance Example
 

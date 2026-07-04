@@ -135,7 +135,7 @@ function buildArticleChunks(article: ExtractedArticle): EvidenceChunk[] {
   ];
 }
 
-function extractLabFromUrl(url: string): string {
+export function extractLabFromUrl(url: string): string {
   if (/anthropic\.com/i.test(url)) return "Anthropic";
   if (/openai\.com/i.test(url)) return "OpenAI";
   if (/blog\.google|deepmind\.google|googleblog\.com/i.test(url)) return "Google Gemini";
