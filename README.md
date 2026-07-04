@@ -92,10 +92,12 @@ Offline eval is deterministic and does not spend provider tokens:
 npm run radar:eval -- --fixtures tests/fixtures/release-benchmark.json --offline --max-cost-usd 0
 ```
 
-Live smoke is dry-run by default. The Task 1 implementation only checks configuration shape; later plan tasks add real fetching, browser verification, system-card reading, benchmark comparison, and LLM calls.
+Live smoke is dry-run by default. The current replay seed fetches and gates the Claude Sonnet 5, Mistral Small 4, and Eleven v3 GA release articles, renders concise verified Telegram messages, and reports structured skips for unavailable evidence. Later plan tasks still add full browser verification, system-card/PDF reading, benchmark comparison, LLM routing, and independent verifier scoring.
 
 ```bash
-npm run radar:smoke -- --dry-run --labs openai,mistral --max-cost-usd 1
+npm run radar:smoke -- --dry-run --max-cost-usd 1
+npm run radar:smoke -- --release-ids anthropic-claude-sonnet-5,mistral-small-4 --dry-run
+npm run radar:smoke -- --no-dry-run --send-telegram
 ```
 
 Install browser dependencies before live browser verification:
@@ -106,9 +108,14 @@ npm run radar:browser:install
 
 ## Ralphex / Executr Handoff
 
-The executable plan lives at `docs/plans/model-release-bot.md`. The repo-level `.ralphex/config` points at the existing implementation branch `codex/model-release-radar`.
+The executable plans live in `docs/plans/`:
 
-This environment did not have a local `ralphex` or `executr` binary on `PATH`, and the GitHub repository has no Actions workflow that auto-runs plans. A runner must be started externally against the plan file.
+- `docs/plans/model-release-bot.md` is the primary implementation plan.
+- `docs/plans/model-release-bot-acceptance-red-team.md` is the acceptance/red-team plan that blocks completion if any original requirement is only partial.
+
+The repo-level `.ralphex/config` points at `main` and uses `plans_dir = docs/plans`, so an executr/ralphex-compatible runner should discover both plan files.
+
+This environment did not have a local `ralphex` or `executr` binary on `PATH`, and the GitHub repository has no Actions workflow that auto-runs plans. A runner must be started externally against the plan directory.
 
 ## Commands
 
