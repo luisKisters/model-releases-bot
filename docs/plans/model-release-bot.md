@@ -207,15 +207,15 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 12: Evaluation Harness And Scoring
 
-- [ ] Implement a real `src/lib/radar/eval.ts`.
-- [ ] `npm run radar:eval -- --offline` must score source eligibility, extraction coverage, system-card coverage, benchmark coverage, LLM routing, cost accounting, final-message coverage, verifier precision, unsupported-claim count, and concision.
-- [ ] The final offline eval must fail if any dimension is `not_scored`.
-- [ ] The final offline eval must fail if any fixture with expected `shouldSend: false` is accepted.
-- [ ] The final offline eval must fail if any expected positive release lacks a verified final message.
-- [ ] The final offline eval must fail if any source URL in output is not present in fixture evidence.
-- [ ] The final offline eval must include a machine-readable JSON report and a human-readable summary.
-- [ ] Add tests for evaluator failure cases and success cases.
-- [ ] Run validation commands and fix all failures.
+- [x] Implement a real `src/lib/radar/eval.ts`.
+- [x] `npm run radar:eval -- --offline` must score source eligibility, extraction coverage, system-card coverage, benchmark coverage, LLM routing, cost accounting, final-message coverage, verifier precision, unsupported-claim count, and concision.
+- [x] The final offline eval must fail if any dimension is `not_scored`.
+- [x] The final offline eval must fail if any fixture with expected `shouldSend: false` is accepted.
+- [x] The final offline eval must fail if any expected positive release lacks a verified final message.
+- [x] The final offline eval must fail if any source URL in output is not present in fixture evidence.
+- [x] The final offline eval must include a machine-readable JSON report and a human-readable summary.
+- [x] Add tests for evaluator failure cases and success cases.
+- [x] Run validation commands and fix all failures.
 
 ### Task 13: Live Smoke CLI
 
