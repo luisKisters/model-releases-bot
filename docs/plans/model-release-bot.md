@@ -170,15 +170,15 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 9: Agent Orchestration And Independent Verifier
 
-- [ ] Implement `src/lib/radar/agents.ts` with internal roles: researcher, article summarizer, system-card summarizer, benchmark aggregator, final writer, and verifier.
-- [ ] Each role must have typed input/output schemas and must record evidence references.
-- [ ] The final writer must not call browser/search/fetch tools directly. It receives verified evidence packets only.
-- [ ] The verifier must run after final writing and before Telegram send.
-- [ ] The verifier must check every final-message claim against article, evidence chunks, benchmark rows, or explicit unknowns.
-- [ ] Unsupported claims must block sending and return actionable verifier findings.
-- [ ] Add tests where verifier catches unsupported strengths, unsupported benchmark claims, missing weaknesses, wrong source URL, stale article URL, and invented safety claims.
-- [ ] Add tests proving verified messages pass and unverified messages are never sent.
-- [ ] Run validation commands and fix all failures.
+- [x] Implement `src/lib/radar/agents.ts` with internal roles: researcher, article summarizer, system-card summarizer, benchmark aggregator, final writer, and verifier.
+- [x] Each role must have typed input/output schemas and must record evidence references.
+- [x] The final writer must not call browser/search/fetch tools directly. It receives verified evidence packets only.
+- [x] The verifier must run after final writing and before Telegram send.
+- [x] The verifier must check every final-message claim against article, evidence chunks, benchmark rows, or explicit unknowns.
+- [x] Unsupported claims must block sending and return actionable verifier findings.
+- [x] Add tests where verifier catches unsupported strengths, unsupported benchmark claims, missing weaknesses, wrong source URL, stale article URL, and invented safety claims.
+- [x] Add tests proving verified messages pass and unverified messages are never sent.
+- [x] Run validation commands and fix all failures.
 
 ### Task 10: Final Release Note Schema, Rendering, And Telegram
 
