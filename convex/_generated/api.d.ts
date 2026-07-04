@@ -12,6 +12,7 @@ import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
 import type * as polling from "../polling.js";
 import type * as registry from "../registry.js";
+import type * as releases from "../releases.js";
 
 import type {
   ApiFromModules,
@@ -24,6 +25,7 @@ declare const fullApi: ApiFromModules<{
   dashboard: typeof dashboard;
   polling: typeof polling;
   registry: typeof registry;
+  releases: typeof releases;
 }>;
 
 /**

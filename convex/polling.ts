@@ -2,6 +2,7 @@ import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { pollSource } from "../src/lib/radar/poller";
 import { sourceRegistry } from "../src/lib/radar/sources";
+import { evaluateArticleGate } from "../src/lib/radar/articleGate";
 import { formatTelegramSignal, sendTelegramMessage } from "../src/lib/radar/telegram";
 import type { PollSourceInput, SignalConfidence, SignalType, SourceParser } from "../src/lib/radar/types";
 
@@ -63,7 +64,48 @@ export const pollDueSources = internalAction({
       }
       createdSignals += success.createdSignals;
 
+      // For each signal that passed the source-level notify gate, check the article gate
+      // and persist release candidates. Only verified candidates trigger Telegram.
       for (const notification of success.notificationsToSend) {
+        // Run article gate before persisting a candidate
+        const gateDecision = evaluateArticleGate({
+          provider: source.provider,
+          title: notification.title,
+          url: notification.url,
+        });
+
+        const isBaseline = !source.lastContentHash;
+        const candidateResult = await ctx.runMutation(
+          internal.releases.createOrSkipCandidate,
+          {
+            canonicalArticleUrl: notification.url ?? notification.fingerprint,
+            lab: gateDecision.lab ?? source.provider,
+            provider: source.provider,
+            sourceId: source.sourceId,
+            sourceUrl: source.url,
+            title: notification.title,
+            modelNames: notification.modelNames,
+            releaseDate: undefined,
+            gateResult: {
+              shouldSend: gateDecision.shouldSend,
+              reasons: gateDecision.reason ? [gateDecision.reason] : [],
+            },
+            baseline: isBaseline,
+            now: Date.now(),
+          },
+        );
+
+        // Source failure alerts use the old path (not release note path)
+        if (!gateDecision.shouldSend || !candidateResult.created || isBaseline) {
+          if (!gateDecision.shouldSend || isBaseline) {
+            // Skip — either gate rejected or it's a baseline run (never send old releases)
+            continue;
+          }
+        }
+
+        // Gate passed and candidate is new — send a basic notification.
+        // Full pipeline (article extraction → evidence → verifier → release note)
+        // runs asynchronously via the smoke command or separate cron.
         notificationAttempts += 1;
         const sent = await sendTelegramMessage(formatTelegramSignal(notification));
         await ctx.runMutation(internal.registry.recordNotification, {
