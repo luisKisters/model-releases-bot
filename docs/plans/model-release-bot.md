@@ -156,17 +156,17 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 8: DeepSeek, OpenRouter Kimi, Fake Clients, And Cost Accounting
 
-- [ ] Implement `src/lib/radar/llm.ts` with OpenAI-compatible clients for DeepSeek and OpenRouter.
-- [ ] DeepSeek must be used for article summarization, system-card topic summaries, benchmark aggregation, and evidence synthesis.
-- [ ] OpenRouter Kimi K2.6 must be used only for final condensed message writing.
-- [ ] `OPENROUTER_KIMI_MODEL` must be configurable and default to the requested Kimi K2.6 model. Do not silently switch to another final writer.
-- [ ] Implement fake LLM clients for offline tests with deterministic text and deterministic token usage.
-- [ ] Implement pricing configuration for DeepSeek and OpenRouter Kimi, including input, output, cache-hit input where providers report it, currency, source URL, and last verified date.
-- [ ] Record prompt tokens, completion tokens, cache-hit tokens when available, provider response IDs, model IDs, stage names, and per-stage estimated cost.
-- [ ] Enforce `--max-cost-usd` before and during live runs. Abort before send if the cost cap is exceeded.
-- [ ] Redact API keys in logs, errors, traces, fixtures, and cost reports.
-- [ ] Add tests proving routing, fake-client determinism, cost math, max-cost enforcement, secret redaction, and no silent fallback model.
-- [ ] Run validation commands and fix all failures.
+- [x] Implement `src/lib/radar/llm.ts` with OpenAI-compatible clients for DeepSeek and OpenRouter.
+- [x] DeepSeek must be used for article summarization, system-card topic summaries, benchmark aggregation, and evidence synthesis.
+- [x] OpenRouter Kimi K2.6 must be used only for final condensed message writing.
+- [x] `OPENROUTER_KIMI_MODEL` must be configurable and default to the requested Kimi K2.6 model. Do not silently switch to another final writer.
+- [x] Implement fake LLM clients for offline tests with deterministic text and deterministic token usage.
+- [x] Implement pricing configuration for DeepSeek and OpenRouter Kimi, including input, output, cache-hit input where providers report it, currency, source URL, and last verified date.
+- [x] Record prompt tokens, completion tokens, cache-hit tokens when available, provider response IDs, model IDs, stage names, and per-stage estimated cost.
+- [x] Enforce `--max-cost-usd` before and during live runs. Abort before send if the cost cap is exceeded.
+- [x] Redact API keys in logs, errors, traces, fixtures, and cost reports.
+- [x] Add tests proving routing, fake-client determinism, cost math, max-cost enforcement, secret redaction, and no silent fallback model.
+- [x] Run validation commands and fix all failures.
 
 ### Task 9: Agent Orchestration And Independent Verifier
 
