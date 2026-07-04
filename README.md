@@ -100,6 +100,27 @@ npm run radar:smoke -- --release-ids anthropic-claude-sonnet-5,mistral-small-4 -
 npm run radar:smoke -- --no-dry-run --send-telegram
 ```
 
+Gate a single article URL without a replay fixture:
+
+```bash
+npm run radar:smoke -- --dry-run --release-url https://api-docs.deepseek.com/news/news260424 --max-cost-usd 0.25
+# A rejected URL exits with code 1 and reports the gate reason:
+npm run radar:smoke -- --dry-run --release-url https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro-DSpark --max-cost-usd 0.25
+```
+
+Run fixtures by lab or scope:
+
+```bash
+# All labs, at most 2 fixtures each
+npm run radar:smoke -- --dry-run --labs all --limit-per-lab 2 --max-cost-usd 1
+# Only DeepSeek and Mistral fixtures
+npm run radar:smoke -- --dry-run --labs deepseek,mistral
+# Fully offline — skip live article fetching
+npm run radar:smoke -- --dry-run --no-fetch
+```
+
+To send Telegram messages without the `--send-telegram` flag, set `RADAR_TELEGRAM_SEND_ENABLED=true` in the environment. Keep it `false` in `.env.local` for local development.
+
 Install browser dependencies before live browser verification:
 
 ```bash

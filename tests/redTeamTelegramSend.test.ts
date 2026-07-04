@@ -259,8 +259,16 @@ describe("red-team telegram: formatting length limits and source URL preservatio
       const body = JSON.parse(fakeFetch.mock.calls[0][1].body as string);
       expect(body.text.length).toBeLessThanOrEqual(4096);
     } finally {
-      process.env.TELEGRAM_BOT_TOKEN = originalToken;
-      process.env.TELEGRAM_CHAT_ID = originalChatId;
+      if (originalToken !== undefined) {
+        process.env.TELEGRAM_BOT_TOKEN = originalToken;
+      } else {
+        delete process.env.TELEGRAM_BOT_TOKEN;
+      }
+      if (originalChatId !== undefined) {
+        process.env.TELEGRAM_CHAT_ID = originalChatId;
+      } else {
+        delete process.env.TELEGRAM_CHAT_ID;
+      }
     }
   });
 
@@ -383,8 +391,12 @@ describe("red-team telegram: source-failure alerts not labeled as model releases
     try {
       expect(telegramConfigured()).toBe(false);
     } finally {
-      process.env.TELEGRAM_BOT_TOKEN = originalToken;
-      process.env.TELEGRAM_CHAT_ID = originalChatId;
+      if (originalToken !== undefined) {
+        process.env.TELEGRAM_BOT_TOKEN = originalToken;
+      }
+      if (originalChatId !== undefined) {
+        process.env.TELEGRAM_CHAT_ID = originalChatId;
+      }
     }
   });
 });

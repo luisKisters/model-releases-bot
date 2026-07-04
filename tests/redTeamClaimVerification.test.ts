@@ -252,6 +252,41 @@ describe("red-team claim verification: stale release dates", () => {
     const finding = findingByIssue(result, "stale_release_date");
     expect(finding).toBeUndefined();
   });
+
+  it("blocks send when releaseDate is from 2021 (boundary: one year below threshold)", () => {
+    const note = getBaseNote("anthropic-claude-sonnet-5");
+    const injected: VerifiedReleaseNote = {
+      ...note,
+      releaseDate: "March 1, 2021",
+    };
+    const result = verifyClaims(injected);
+    expect(result.approved).toBe(false);
+    const finding = findingByIssue(result, "stale_release_date");
+    expect(finding).toBeDefined();
+    expect(finding!.detail).toContain("2021");
+  });
+
+  it("passes for a 2022 release date (boundary: at threshold)", () => {
+    const note = getBaseNote("anthropic-claude-sonnet-5");
+    const injected: VerifiedReleaseNote = {
+      ...note,
+      releaseDate: "January 1, 2022",
+    };
+    const result = verifyClaims(injected);
+    const finding = findingByIssue(result, "stale_release_date");
+    expect(finding).toBeUndefined();
+  });
+
+  it("does not flag unparseable release date (silent pass — no year extracted)", () => {
+    const note = getBaseNote("anthropic-claude-sonnet-5");
+    const injected: VerifiedReleaseNote = {
+      ...note,
+      releaseDate: "Unknown date",
+    };
+    const result = verifyClaims(injected);
+    const finding = findingByIssue(result, "stale_release_date");
+    expect(finding).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

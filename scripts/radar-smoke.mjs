@@ -8,7 +8,9 @@ import {
   selectReleaseReplayCases,
 } from "../src/lib/radar/releaseMessages.ts";
 import { evaluateArticleGate, identifyProviderForUrl } from "../src/lib/radar/articleGate.ts";
-import { sendTelegramMessage, telegramConfigured } from "../src/lib/radar/telegram.ts";
+import { sendTelegramMessage, shouldSendToTelegram, telegramConfigured } from "../src/lib/radar/telegram.ts";
+import { verifyClaims } from "../src/lib/radar/claimVerifier.ts";
+import { checkCostCap } from "../src/lib/radar/costGuard.ts";
 
 loadLocalEnv();
 
@@ -31,6 +33,7 @@ const secretStatus = {
 
 const results = [];
 let ok = true;
+let selectedCases = [];
 
 if (releaseUrl) {
   const result = await runReleaseUrl(releaseUrl);
@@ -39,11 +42,17 @@ if (releaseUrl) {
     ok = false;
   }
 } else {
-  const selectedCases = selectCases(requestedIds, requestedLabs, limitPerLab);
+  selectedCases = selectCases(requestedIds, requestedLabs, limitPerLab);
 
   for (const releaseCase of selectedCases) {
     const fetchResult = fetchArticles ? await fetchArticle(releaseCase.url) : { ok: false, skipped: true };
     const note = buildVerifiedReleaseNote(releaseCase, fetchResult.ok ? { html: fetchResult.html } : {});
+
+    const claimResult = verifyClaims(note);
+    if (!claimResult.approved) {
+      note.verificationStatus = "rejected";
+    }
+
     const message = formatVerifiedReleaseNote(note);
     let telegramResult = null;
 
@@ -51,9 +60,15 @@ if (releaseUrl) {
       ok = false;
     }
 
-    if (!dryRun && sendTelegram) {
-      telegramResult = await sendTelegramMessage(message);
-      if (!telegramResult.ok) {
+    const decision = shouldSendToTelegram(note, { dryRun, sendTelegramFlag: sendTelegram });
+    if (decision.willSend) {
+      const costCheck = checkCostCap(note.costSummary.totalCostUsd, maxCostUsd);
+      if (costCheck.allowed) {
+        telegramResult = await sendTelegramMessage(message);
+        if (!telegramResult.ok) {
+          ok = false;
+        }
+      } else {
         ok = false;
       }
     }
@@ -79,9 +94,7 @@ if (!dryRun && sendTelegram && !telegramConfigured()) {
   ok = false;
 }
 
-const selectedReleaseIds = releaseUrl
-  ? []
-  : selectCases(requestedIds, requestedLabs, limitPerLab).map((c) => c.id);
+const selectedReleaseIds = releaseUrl ? [] : selectedCases.map((c) => c.id);
 
 const result = {
   ok,
@@ -151,9 +164,15 @@ async function runReleaseUrl(url) {
   const message = formatVerifiedReleaseNote(note);
   let telegramResult = null;
 
-  if (!dryRun && sendTelegram) {
-    telegramResult = await sendTelegramMessage(message);
-    if (!telegramResult.ok) {
+  const decision = shouldSendToTelegram(note, { dryRun, sendTelegramFlag: sendTelegram });
+  if (decision.willSend) {
+    const costCheck = checkCostCap(note.costSummary.totalCostUsd, maxCostUsd);
+    if (costCheck.allowed) {
+      telegramResult = await sendTelegramMessage(message);
+      if (!telegramResult.ok) {
+        ok = false;
+      }
+    } else {
       ok = false;
     }
   }

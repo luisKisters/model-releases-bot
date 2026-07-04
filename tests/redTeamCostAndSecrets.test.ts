@@ -18,80 +18,9 @@ import {
 //    provider IDs, stage names, and cost
 // ---------------------------------------------------------------------------
 describe("red-team cost & secrets: live LLM usage record structure", () => {
-  it("CostStage type accepts all required live fields", () => {
-    const stage: CostStage = {
-      stage: "summarize_article",
-      model: "deepseek-chat",
-      providerId: "deepseek",
-      costUsd: 0.005,
-      promptTokens: 1200,
-      completionTokens: 350,
-    };
-    expect(stage.stage).toBe("summarize_article");
-    expect(stage.model).toBe("deepseek-chat");
-    expect(stage.providerId).toBe("deepseek");
-    expect(stage.costUsd).toBe(0.005);
-    expect(stage.promptTokens).toBe(1200);
-    expect(stage.completionTokens).toBe(350);
-  });
-
-  it("CostSummary in live mode holds per-stage prompt/completion token counts", () => {
-    const summary: CostSummary = {
-      mode: "live",
-      totalCostUsd: 0.12,
-      stages: [
-        {
-          stage: "summarize_article",
-          model: "deepseek-chat",
-          providerId: "deepseek",
-          costUsd: 0.08,
-          promptTokens: 4000,
-          completionTokens: 800,
-        },
-        {
-          stage: "write_message",
-          model: "openrouter/moonshotai/kimi-k2-6",
-          providerId: "openrouter",
-          costUsd: 0.04,
-          promptTokens: 1500,
-          completionTokens: 200,
-        },
-      ],
-    };
-    expect(summary.mode).toBe("live");
-    expect(summary.totalCostUsd).toBe(0.12);
-    expect(summary.stages).toHaveLength(2);
-    const [s1, s2] = summary.stages;
-    expect(s1.stage).toBe("summarize_article");
-    expect(s1.providerId).toBe("deepseek");
-    expect(s1.promptTokens).toBe(4000);
-    expect(s1.completionTokens).toBe(800);
-    expect(s2.stage).toBe("write_message");
-    expect(s2.providerId).toBe("openrouter");
-    expect(s2.promptTokens).toBe(1500);
-    expect(s2.completionTokens).toBe(200);
-  });
-
-  it("live pipeline stages include all four named stages", () => {
-    const stages: CostStage[] = [
-      { stage: "fetch_article", model: "none", providerId: "none", costUsd: 0 },
-      { stage: "summarize_article", model: "deepseek-chat", providerId: "deepseek", costUsd: 0.05, promptTokens: 2000, completionTokens: 400 },
-      { stage: "write_message", model: "openrouter/moonshotai/kimi-k2-6", providerId: "openrouter", costUsd: 0.03, promptTokens: 800, completionTokens: 150 },
-      { stage: "verify_claims", model: "deepseek-chat", providerId: "deepseek", costUsd: 0.02, promptTokens: 600, completionTokens: 100 },
-    ];
-    expect(stages.map((s) => s.stage)).toEqual([
-      "fetch_article",
-      "summarize_article",
-      "write_message",
-      "verify_claims",
-    ]);
-    expect(stages.every((s) => typeof s.costUsd === "number")).toBe(true);
-    expect(stages.every((s) => typeof s.model === "string")).toBe(true);
-    expect(stages.every((s) => s.providerId !== undefined)).toBe(true);
-  });
-
-  it("buildVerifiedReleaseNote accepts a live cost summary with token data", () => {
-    const releaseCase = releaseReplayCases.find((c) => c.id === "deepseek-v4")!;
+  it("buildVerifiedReleaseNote preserves live cost summary token counts from all pipeline stages", () => {
+    const releaseCase = releaseReplayCases.find((c) => c.id === "deepseek-v4");
+    if (!releaseCase) throw new Error("fixture deepseek-v4 not found");
     const note = buildVerifiedReleaseNote(releaseCase, {
       costSummary: {
         mode: "live",
@@ -104,8 +33,44 @@ describe("red-team cost & secrets: live LLM usage record structure", () => {
     });
     expect(note.costSummary.mode).toBe("live");
     expect(note.costSummary.totalCostUsd).toBe(0.12);
+    expect(note.costSummary.stages).toHaveLength(2);
+    expect(note.costSummary.stages[0].stage).toBe("summarize_article");
+    expect(note.costSummary.stages[0].providerId).toBe("deepseek");
     expect(note.costSummary.stages[0].promptTokens).toBe(3000);
+    expect(note.costSummary.stages[0].completionTokens).toBe(600);
+    expect(note.costSummary.stages[1].stage).toBe("write_message");
+    expect(note.costSummary.stages[1].providerId).toBe("openrouter");
+    expect(note.costSummary.stages[1].promptTokens).toBe(1000);
     expect(note.costSummary.stages[1].completionTokens).toBe(180);
+  });
+
+  it("formatVerifiedReleaseNote renders live cost line with dollar amount and stage count", () => {
+    const releaseCase = releaseReplayCases.find((c) => c.id === "deepseek-v4");
+    if (!releaseCase) throw new Error("fixture deepseek-v4 not found");
+    const note = buildVerifiedReleaseNote(releaseCase, {
+      costSummary: {
+        mode: "live",
+        totalCostUsd: 0.0750,
+        stages: [
+          { stage: "summarize_article", model: "deepseek-chat", providerId: "deepseek", costUsd: 0.05, promptTokens: 2000, completionTokens: 400 },
+          { stage: "write_message", model: "openrouter/moonshotai/kimi-k2-6", providerId: "openrouter", costUsd: 0.025, promptTokens: 800, completionTokens: 150 },
+        ],
+      },
+    });
+    const message = formatVerifiedReleaseNote(note);
+    expect(message).toContain("$0.0750");
+    expect(message).toContain("2 stage(s)");
+  });
+
+  it("formatVerifiedReleaseNote renders offline cost line when mode is offline", () => {
+    const releaseCase = releaseReplayCases.find((c) => c.id === "deepseek-v4");
+    if (!releaseCase) throw new Error("fixture deepseek-v4 not found");
+    const note = buildVerifiedReleaseNote(releaseCase);
+    expect(note.costSummary.mode).toBe("offline");
+    expect(note.costSummary.totalCostUsd).toBe(0);
+    const message = formatVerifiedReleaseNote(note);
+    expect(message).toContain("offline");
+    expect(message).toContain("$0.00");
   });
 });
 
