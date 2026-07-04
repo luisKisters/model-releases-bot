@@ -14,7 +14,7 @@ export type ClaimVerifierResult = {
 
 // Strong comparative benchmark language that requires evidence backing
 const STRONG_BENCHMARK_CLAIM =
-  /\b(?:beats?|surpasse?s?|outperforms?|state-of-the-art|number[- ]?one|first[- ]?place|top[- ]?ranked)\b|#1(?:[\s,;.()]|$)/i;
+  /\b(?:beats?|surpass(?:es|ed|ing)?|outperform(?:s|ed|ing)?|state-of-the-art|number[- ]?one|first[- ]?place|top[- ]?ranked)\b|#1(?:[\s,;.()]|$)/i;
 
 // Phrases that assert system-card or safety certification as fact
 const INVENTED_SAFETY_CLAIM =
