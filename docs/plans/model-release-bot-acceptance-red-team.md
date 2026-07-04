@@ -55,11 +55,11 @@ The last two commands must reject the input as non-sendable. They must not retur
 
 ### Task 3: Red-Team Positive Coverage
 
-- [ ] For every selected lab, run at least two official dedicated release article fixtures where available.
-- [ ] Verify every expected positive fixture reaches a verified release-note object.
-- [ ] Verify every positive fixture includes canonical URL, release date, model names, source links, evidence status, benchmark status, verifier status, and cost status.
-- [ ] Verify discovery-only sources can lead to a dedicated article but cannot send directly.
-- [ ] Run validation commands and fix all failures.
+- [x] For every selected lab, run at least two official dedicated release article fixtures where available.
+- [x] Verify every expected positive fixture reaches a verified release-note object.
+- [x] Verify every positive fixture includes canonical URL, release date, model names, source links, evidence status, benchmark status, verifier status, and cost status.
+- [x] Verify discovery-only sources can lead to a dedicated article but cannot send directly.
+- [x] Run validation commands and fix all failures.
 
 ### Task 4: DeepSeek V4 End-To-End Acceptance
 

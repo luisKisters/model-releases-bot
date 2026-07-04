@@ -48,6 +48,291 @@
       }
     },
     {
+      "id": "openai-gpt-4-1",
+      "provider": "OpenAI",
+      "title": "Introducing GPT-4.1 in the API",
+      "url": "https://openai.com/index/gpt-4-1/",
+      "summary": "GPT-4.1 features a 1M-token context window and strong SWE-bench performance.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "OpenAI",
+        "modelNames": ["GPT-4.1", "gpt-4.1"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "openai-o3-o4-mini",
+      "provider": "OpenAI",
+      "title": "Introducing o3 and o4-mini",
+      "url": "https://openai.com/index/openai-o3-o4-mini/",
+      "summary": "o3 and o4-mini are OpenAI's most capable reasoning models with strong AIME 2025 scores.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "OpenAI",
+        "modelNames": ["o3", "o4-mini"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "anthropic-claude-opus-4-8",
+      "provider": "Anthropic",
+      "title": "Introducing Claude Opus 4.8",
+      "url": "https://www.anthropic.com/news/claude-opus-4-8",
+      "summary": "Claude Opus 4.8 is Anthropic's most capable model for demanding agentic tasks.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "Anthropic",
+        "modelNames": ["Claude Opus 4.8", "claude-opus-4-8"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "google-gemini-25-flash",
+      "provider": "Google Gemini",
+      "title": "Start building with Gemini 2.5 Flash",
+      "url": "https://developers.googleblog.com/en/start-building-with-gemini-25-flash/",
+      "summary": "Gemini 2.5 Flash is now available via Google AI Studio and the Gemini API.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "Google Gemini",
+        "modelNames": ["Gemini 2.5 Flash", "gemini-2.5-flash"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "google-gemini-25-pro",
+      "provider": "Google Gemini",
+      "title": "New Gemini 2.5 models available now",
+      "url": "https://developers.googleblog.com/en/new-gemini-25-models-available-now/",
+      "summary": "Gemini 2.5 Pro is now generally available with top results on AIME 2025 and GPQA Diamond.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "Google Gemini",
+        "modelNames": ["Gemini 2.5 Pro", "gemini-2.5-pro"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "mistral-pixtral-large",
+      "provider": "Mistral",
+      "title": "Pixtral Large: a new frontier-class multimodal model",
+      "url": "https://mistral.ai/news/pixtral-large-2411/",
+      "summary": "Pixtral Large is a frontier multimodal model with strong MathVista and DocVQA results.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "Mistral",
+        "modelNames": ["Pixtral Large", "pixtral-large-2411"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "deepseek-v4",
+      "provider": "DeepSeek",
+      "title": "DeepSeek-V4-Pro and DeepSeek-V4-Flash are now available",
+      "url": "https://api-docs.deepseek.com/news/news260424",
+      "summary": "DeepSeek-V4-Pro and DeepSeek-V4-Flash are released with open weights.",
+      "requires_live_reverify": false,
+      "expected": {
+        "shouldSend": true,
+        "lab": "DeepSeek",
+        "modelNames": ["DeepSeek-V4-Pro", "DeepSeek-V4-Flash"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "deepseek-v3-0324",
+      "provider": "DeepSeek",
+      "title": "DeepSeek-V3 updated model release",
+      "url": "https://api-docs.deepseek.com/news/news250325",
+      "summary": "DeepSeek-V3 updated checkpoint with improved LiveCodeBench and AIME results.",
+      "requires_live_reverify": false,
+      "expected": {
+        "shouldSend": true,
+        "lab": "DeepSeek",
+        "modelNames": ["DeepSeek-V3"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "meta-llama-4",
+      "provider": "Meta Llama",
+      "title": "Llama 4: our most capable AI model to date",
+      "url": "https://ai.meta.com/blog/llama-4-multimodal-intelligence/",
+      "summary": "Llama 4 Scout and Maverick are multimodal open-weights models with a 10M token context.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "Meta Llama",
+        "modelNames": ["Llama 4 Scout", "Llama 4 Maverick"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "meta-llama-3-3",
+      "provider": "Meta Llama",
+      "title": "Llama 3.3 70B: the most capable dense Llama model",
+      "url": "https://ai.meta.com/blog/llama-3-3/",
+      "summary": "Llama 3.3 70B matches the performance of Llama 3.1 405B on key benchmarks.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "Meta Llama",
+        "modelNames": ["Llama 3.3 70B"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "xai-grok-3",
+      "provider": "xAI",
+      "title": "Grok 3 Beta: available now",
+      "url": "https://x.ai/news/grok-3",
+      "summary": "Grok 3 and Grok 3 Mini are now available with explicit thinking mode.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "xAI",
+        "modelNames": ["Grok 3", "Grok 3 Mini"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "xai-grok-4",
+      "provider": "xAI",
+      "title": "Grok 4: the world's most intelligent AI model",
+      "url": "https://x.ai/news/grok-4",
+      "summary": "Grok 4 achieves first-place results on Humanity's Last Exam.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "xAI",
+        "modelNames": ["Grok 4"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "nvidia-nemotron-ultra",
+      "provider": "NVIDIA Nemotron",
+      "title": "NVIDIA Llama Nemotron Ultra open model delivers groundbreaking reasoning accuracy",
+      "url": "https://developer.nvidia.com/blog/nvidia-llama-nemotron-ultra-open-model-delivers-groundbreaking-reasoning-accuracy/",
+      "summary": "Llama Nemotron Ultra achieves leading open-weights GPQA Diamond and LiveCodeBench results.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "NVIDIA Nemotron",
+        "modelNames": ["Llama Nemotron Ultra"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "nvidia-nemotron-4-340b",
+      "provider": "NVIDIA Nemotron",
+      "title": "NVIDIA releases Nemotron-4 340B model family",
+      "url": "https://research.nvidia.com/labs/nemotron/post/nemotron-4-340b/",
+      "summary": "Nemotron-4 340B includes Base, Instruct, and Reward variants for alignment training.",
+      "requires_live_reverify": false,
+      "expected": {
+        "shouldSend": true,
+        "lab": "NVIDIA Nemotron",
+        "modelNames": ["Nemotron-4 340B"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "deepgram-nova-3",
+      "provider": "Deepgram",
+      "title": "Introducing Nova-3: Deepgram's most accurate model",
+      "url": "https://deepgram.com/learn/nova-3-model",
+      "summary": "Nova-3 achieves the lowest word error rate in Deepgram's lineup with multilingual support.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "Deepgram",
+        "modelNames": ["Nova-3"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "deepgram-aura-2",
+      "provider": "Deepgram",
+      "title": "Aura-2: next generation text-to-speech model released",
+      "url": "https://deepgram.com/learn/aura-2-text-to-speech",
+      "summary": "Aura-2 is a more expressive TTS model optimized for real-time API use.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "Deepgram",
+        "modelNames": ["Aura-2"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "elevenlabs-turbo-v2-5",
+      "provider": "ElevenLabs",
+      "title": "Introducing Turbo v2.5: our fastest multilingual model",
+      "url": "https://elevenlabs.io/blog/turbo-v2-5",
+      "summary": "Turbo v2.5 delivers 300ms latency with native support for 32 languages.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "ElevenLabs",
+        "modelNames": ["Turbo v2.5"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "assemblyai-universal-2",
+      "provider": "AssemblyAI",
+      "title": "Introducing Universal-2: the most accurate speech model ever made",
+      "url": "https://www.assemblyai.com/blog/universal-2/",
+      "summary": "Universal-2 achieves lower WER than Whisper v3 Large across diverse audio types.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "AssemblyAI",
+        "modelNames": ["Universal-2"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "assemblyai-conformer-2",
+      "provider": "AssemblyAI",
+      "title": "Conformer-2: next-generation speech model release",
+      "url": "https://www.assemblyai.com/blog/conformer-2/",
+      "summary": "Conformer-2 achieves state-of-the-art WER across multiple benchmark corpora.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "AssemblyAI",
+        "modelNames": ["Conformer-2"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
       "id": "cohere-command-a-excluded",
       "provider": "Cohere",
       "title": "Introducing Command A",
