@@ -37,12 +37,12 @@ The last two commands must reject the input as non-sendable. They must not retur
 
 ### Task 1: Prove Executr Discovers Both Plans
 
-- [ ] Confirm `.ralphex/config` has `plans_dir = docs/plans`.
-- [ ] Confirm `docs/plans/model-release-bot.md` exists.
-- [ ] Confirm `docs/plans/model-release-bot-acceptance-red-team.md` exists.
-- [ ] Confirm README or handoff docs name both plans and explain execution order.
-- [ ] Confirm no old plan file contradicts the selected-lab, dedicated-article, verifier, LLM-routing, or cost requirements.
-- [ ] Run validation commands and fix all failures.
+- [x] Confirm `.ralphex/config` has `plans_dir = docs/plans`.
+- [x] Confirm `docs/plans/model-release-bot.md` exists.
+- [x] Confirm `docs/plans/model-release-bot-acceptance-red-team.md` exists.
+- [x] Confirm README or handoff docs name both plans and explain execution order.
+- [x] Confirm no old plan file contradicts the selected-lab, dedicated-article, verifier, LLM-routing, or cost requirements.
+- [x] Run validation commands and fix all failures.
 
 ### Task 2: Red-Team Source Eligibility
 

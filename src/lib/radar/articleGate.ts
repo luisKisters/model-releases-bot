@@ -92,6 +92,19 @@ const MODEL_RELEASE_TEXT =
 const GENERIC_SOURCE_PATH =
   /^\/?$|^\/news\/?$|^\/blog\/?$|\/rss\.xml$|\/index\.xml$|\/feed(?:\/|\.xml)?$|\/models\/?$|\/docs\/models\/?$/i;
 
+export function identifyProviderForUrl(url: string): string | null {
+  const parsedUrl = parseUrl(url);
+  if (!parsedUrl) {
+    return null;
+  }
+
+  const rule = LAB_RULES.find((entry) =>
+    entry.hosts.some((host) => hostMatches(parsedUrl.hostname, host)),
+  );
+
+  return rule?.providers[0] ?? null;
+}
+
 export function evaluateArticleGate(candidate: ArticleGateCandidate): ArticleGateDecision {
   const provider = candidate.source?.provider ?? candidate.provider;
   const rule = LAB_RULES.find((entry) => entry.providers.includes(provider));

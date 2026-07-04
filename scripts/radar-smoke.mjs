@@ -2,10 +2,12 @@ import { loadLocalEnv } from "./shared-env.mjs";
 import {
   buildVerifiedReleaseNote,
   defaultReplayReleaseIds,
+  extractArticleMetadata,
   formatVerifiedReleaseNote,
   releaseReplayCases,
   selectReleaseReplayCases,
 } from "../src/lib/radar/releaseMessages.ts";
+import { evaluateArticleGate, identifyProviderForUrl } from "../src/lib/radar/articleGate.ts";
 import { sendTelegramMessage, telegramConfigured } from "../src/lib/radar/telegram.ts";
 
 loadLocalEnv();
@@ -17,7 +19,8 @@ const sendTelegram = booleanArg(args["send-telegram"] ?? args.send, false) || pr
 const maxCostUsd = Number(args["max-cost-usd"] ?? process.env.MODEL_RELEASES_MAX_COST_USD ?? 1);
 const requestedIds = listArg(args["release-ids"] ?? args.releases);
 const requestedLabs = listArg(args.labs);
-const selectedCases = selectCases(requestedIds, requestedLabs);
+const releaseUrl = args["release-url"] ? String(args["release-url"]) : null;
+const limitPerLab = args["limit-per-lab"] ? Number(args["limit-per-lab"]) : null;
 
 const secretStatus = {
   deepseek: Boolean(process.env.DEEPSEEK_API_KEY),
@@ -29,15 +32,124 @@ const secretStatus = {
 const results = [];
 let ok = true;
 
-for (const releaseCase of selectedCases) {
-  const fetchResult = fetchArticles ? await fetchArticle(releaseCase.url) : { ok: false, skipped: true };
-  const note = buildVerifiedReleaseNote(releaseCase, fetchResult.ok ? { html: fetchResult.html } : {});
-  const message = formatVerifiedReleaseNote(note);
-  let telegramResult = null;
-
-  if (!note.gate.shouldSend) {
+if (releaseUrl) {
+  const result = await runReleaseUrl(releaseUrl);
+  results.push(result);
+  if (!result.gate.shouldSend) {
     ok = false;
   }
+} else {
+  const selectedCases = selectCases(requestedIds, requestedLabs, limitPerLab);
+
+  for (const releaseCase of selectedCases) {
+    const fetchResult = fetchArticles ? await fetchArticle(releaseCase.url) : { ok: false, skipped: true };
+    const note = buildVerifiedReleaseNote(releaseCase, fetchResult.ok ? { html: fetchResult.html } : {});
+    const message = formatVerifiedReleaseNote(note);
+    let telegramResult = null;
+
+    if (!note.gate.shouldSend) {
+      ok = false;
+    }
+
+    if (!dryRun && sendTelegram) {
+      telegramResult = await sendTelegramMessage(message);
+      if (!telegramResult.ok) {
+        ok = false;
+      }
+    }
+
+    results.push({
+      id: releaseCase.id,
+      provider: note.provider,
+      title: note.title,
+      sourceUrl: note.sourceUrl,
+      gate: note.gate,
+      verificationStatus: note.verificationStatus,
+      fetched: fetchResult.ok
+        ? { ok: true, status: fetchResult.status, bytes: fetchResult.bytes }
+        : fetchResult,
+      evidenceLinks: note.evidenceLinks,
+      telegram: telegramResult,
+      message,
+    });
+  }
+}
+
+if (!dryRun && sendTelegram && !telegramConfigured()) {
+  ok = false;
+}
+
+const selectedReleaseIds = releaseUrl
+  ? []
+  : selectCases(requestedIds, requestedLabs, limitPerLab).map((c) => c.id);
+
+const result = {
+  ok,
+  dryRun,
+  fetchArticles,
+  releaseUrl: releaseUrl ?? undefined,
+  selectedReleaseIds,
+  maxCostUsd,
+  estimatedCostUsd: 0,
+  secretStatus,
+  destinationSendEnabled: sendTelegram && !dryRun,
+  status: ok ? "completed" : "rejected",
+  results,
+};
+
+console.log(JSON.stringify(result, null, 2));
+
+if (!ok) {
+  process.exitCode = 1;
+}
+
+async function runReleaseUrl(url) {
+  const fetchResult = fetchArticles ? await fetchArticle(url) : { ok: false, skipped: true };
+  const html = fetchResult.ok ? fetchResult.html : "";
+
+  const provider = identifyProviderForUrl(url);
+  const metadata = html ? extractArticleMetadata(html, url) : null;
+  const title = metadata?.title ?? "";
+
+  const gate = evaluateArticleGate({ provider: provider ?? "__unknown__", title, url });
+
+  const fetched = fetchResult.ok
+    ? { ok: true, status: fetchResult.status, bytes: fetchResult.bytes }
+    : fetchResult;
+
+  if (!gate.shouldSend) {
+    return {
+      id: null,
+      provider: provider ?? null,
+      title,
+      sourceUrl: url,
+      gate,
+      verificationStatus: "rejected",
+      fetched,
+      evidenceLinks: metadata?.evidenceLinks ?? [],
+      telegram: null,
+      message: null,
+    };
+  }
+
+  const releaseCase = {
+    id: `url-${slugify(url)}`,
+    provider: provider,
+    title,
+    url,
+    releaseDate: metadata?.releaseDate ?? "unknown",
+    modelNames: [],
+    whereItShines: [],
+    strengths: [],
+    weaknessesUnknowns: [],
+    benchmarkContext: [],
+    safetySystemNotes: [],
+    evidenceLinks: metadata?.evidenceLinks ?? [],
+  };
+
+  const note = buildVerifiedReleaseNote(releaseCase, { html });
+  const message = formatVerifiedReleaseNote(note);
+  let telegramResult = null;
 
   if (!dryRun && sendTelegram) {
     telegramResult = await sendTelegramMessage(message);
@@ -46,43 +158,18 @@ for (const releaseCase of selectedCases) {
     }
   }
 
-  results.push({
+  return {
     id: releaseCase.id,
     provider: note.provider,
     title: note.title,
     sourceUrl: note.sourceUrl,
     gate: note.gate,
     verificationStatus: note.verificationStatus,
-    fetched: fetchResult.ok
-      ? { ok: true, status: fetchResult.status, bytes: fetchResult.bytes }
-      : fetchResult,
+    fetched,
     evidenceLinks: note.evidenceLinks,
     telegram: telegramResult,
     message,
-  });
-}
-
-if (!dryRun && sendTelegram && !telegramConfigured()) {
-  ok = false;
-}
-
-const result = {
-  ok,
-  dryRun,
-  fetchArticles,
-  selectedReleaseIds: selectedCases.map((releaseCase) => releaseCase.id),
-  maxCostUsd,
-  estimatedCostUsd: 0,
-  secretStatus,
-  destinationSendEnabled: sendTelegram && !dryRun,
-  status: ok ? "completed" : "failed",
-  results,
-};
-
-console.log(JSON.stringify(result, null, 2));
-
-if (!ok) {
-  process.exitCode = 1;
+  };
 }
 
 function parseArgs(argv) {
@@ -115,17 +202,34 @@ function parseArgs(argv) {
   return parsed;
 }
 
-function selectCases(requestedCaseIds, requestedLabSlugs) {
+function selectCases(requestedCaseIds, requestedLabSlugs, limit) {
+  let cases;
+
   if (requestedCaseIds.length > 0) {
-    return selectReleaseReplayCases(requestedCaseIds);
-  }
-
-  if (requestedLabSlugs.length > 0) {
+    cases = selectReleaseReplayCases(requestedCaseIds);
+  } else if (requestedLabSlugs.length > 0 && requestedLabSlugs[0] !== "all") {
     const labs = new Set(requestedLabSlugs.map(slugify));
-    return releaseReplayCases.filter((releaseCase) => labs.has(slugify(releaseCase.provider)));
+    cases = releaseReplayCases.filter((releaseCase) => labs.has(slugify(releaseCase.provider)));
+  } else if (requestedLabSlugs.length > 0 && requestedLabSlugs[0] === "all") {
+    cases = [...releaseReplayCases];
+  } else {
+    cases = selectReleaseReplayCases(defaultReplayReleaseIds);
   }
 
-  return selectReleaseReplayCases(defaultReplayReleaseIds);
+  if (limit != null && Number.isFinite(limit) && limit > 0) {
+    const countByLab = new Map();
+    const limited = [];
+    for (const releaseCase of cases) {
+      const count = countByLab.get(releaseCase.provider) ?? 0;
+      if (count < limit) {
+        limited.push(releaseCase);
+        countByLab.set(releaseCase.provider, count + 1);
+      }
+    }
+    return limited;
+  }
+
+  return cases;
 }
 
 function listArg(value) {
