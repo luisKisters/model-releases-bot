@@ -106,9 +106,9 @@ The last two commands must reject the input as non-sendable. They must not retur
 
 ### Task 8: Final Acceptance Report
 
-- [ ] Produce a machine-readable acceptance report under `artifacts/` or `cost-reports/` that is gitignored.
-- [ ] Produce a short tracked summary under `docs/` with command names, pass/fail status, and any structured skips, but no secrets.
-- [ ] Confirm every red-team command has the expected result.
-- [ ] Confirm every original requirement is marked pass, not partial.
-- [ ] If any requirement is partial, reopen `docs/plans/model-release-bot.md` and do not mark either plan complete.
-- [ ] Run validation commands and fix all failures.
+- [x] Produce a machine-readable acceptance report under `artifacts/` or `cost-reports/` that is gitignored.
+- [x] Produce a short tracked summary under `docs/` with command names, pass/fail status, and any structured skips, but no secrets.
+- [x] Confirm every red-team command has the expected result.
+- [x] Confirm every original requirement is marked pass, not partial.
+- [x] If any requirement is partial, reopen `docs/plans/model-release-bot.md` and do not mark either plan complete.
+- [x] Run validation commands and fix all failures.
