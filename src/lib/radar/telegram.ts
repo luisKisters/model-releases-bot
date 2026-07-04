@@ -4,6 +4,16 @@ export type TelegramResult = {
   error?: string;
 };
 
+export type TelegramSendOptions = {
+  dryRun?: boolean;
+  sendTelegramFlag?: boolean;
+};
+
+export type TelegramSendDecision = {
+  willSend: boolean;
+  reason: "dry_run" | "send_flag_not_set" | "gate_rejected" | "not_verified" | "approved";
+};
+
 export function telegramConfigured() {
   return Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
 }
@@ -33,6 +43,42 @@ export async function sendTelegramMessage(text: string, fetchImpl: typeof fetch 
     status: response.status,
     error: response.ok && payload?.ok !== false ? undefined : payload?.description ?? response.statusText,
   };
+}
+
+export function shouldSendToTelegram(
+  note: { gate: { shouldSend: boolean }; verificationStatus: string },
+  options: TelegramSendOptions,
+): TelegramSendDecision {
+  if (options.dryRun) {
+    return { willSend: false, reason: "dry_run" };
+  }
+  if (!options.sendTelegramFlag) {
+    return { willSend: false, reason: "send_flag_not_set" };
+  }
+  if (!note.gate.shouldSend) {
+    return { willSend: false, reason: "gate_rejected" };
+  }
+  if (note.verificationStatus !== "verified") {
+    return { willSend: false, reason: "not_verified" };
+  }
+  return { willSend: true, reason: "approved" };
+}
+
+export function formatSourceFailureAlert(alert: {
+  sourceId: string;
+  sourceLabel: string;
+  error: string;
+  url?: string;
+}): string {
+  const lines = [
+    `Operational alert: source polling failure`,
+    `Source: ${alert.sourceLabel} (${alert.sourceId})`,
+    `Error: ${alert.error}`,
+  ];
+  if (alert.url) {
+    lines.push(`URL: ${alert.url}`);
+  }
+  return lines.join("\n");
 }
 
 export function formatTelegramSignal(signal: {

@@ -96,13 +96,13 @@ The last two commands must reject the input as non-sendable. They must not retur
 
 ### Task 7: Telegram Send Red Team
 
-- [ ] Verify dry-run never calls Telegram.
-- [ ] Verify non-dry-run without `--send-telegram` never calls Telegram.
-- [ ] Verify non-dry-run with `--send-telegram` sends only verified release notes.
-- [ ] Verify rejected candidates cannot call Telegram even if `--send-telegram` is set.
-- [ ] Verify Telegram formatting stays under length limits and preserves source URLs.
-- [ ] Verify operational source-failure alerts are not labeled as model releases.
-- [ ] Run validation commands and fix all failures.
+- [x] Verify dry-run never calls Telegram.
+- [x] Verify non-dry-run without `--send-telegram` never calls Telegram.
+- [x] Verify non-dry-run with `--send-telegram` sends only verified release notes.
+- [x] Verify rejected candidates cannot call Telegram even if `--send-telegram` is set.
+- [x] Verify Telegram formatting stays under length limits and preserves source URLs.
+- [x] Verify operational source-failure alerts are not labeled as model releases.
+- [x] Run validation commands and fix all failures.
 
 ### Task 8: Final Acceptance Report
 
