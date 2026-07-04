@@ -22,6 +22,9 @@ export type StructuredSkip = {
 };
 
 export function checkCostCap(actualCostUsd: number, maxCostUsd: number): CostCapResult {
+  if (!Number.isFinite(maxCostUsd) || !Number.isFinite(actualCostUsd)) {
+    return { allowed: false, reason: "max_cost_exceeded", actualCostUsd, maxCostUsd };
+  }
   if (actualCostUsd > maxCostUsd) {
     return { allowed: false, reason: "max_cost_exceeded", actualCostUsd, maxCostUsd };
   }

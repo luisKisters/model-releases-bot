@@ -161,6 +161,12 @@ async function runReleaseUrl(url) {
   };
 
   const note = buildVerifiedReleaseNote(releaseCase, { html });
+
+  const claimResult = verifyClaims(note);
+  if (!claimResult.approved) {
+    note.verificationStatus = "rejected";
+  }
+
   const message = formatVerifiedReleaseNote(note);
   let telegramResult = null;
 
