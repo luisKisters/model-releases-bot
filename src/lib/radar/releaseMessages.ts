@@ -34,7 +34,10 @@ export type ArticleMetadata = {
 export type CostStage = {
   stage: string;
   model: string;
+  providerId?: string;
   costUsd: number;
+  promptTokens?: number;
+  completionTokens?: number;
 };
 
 export type CostSummary = {

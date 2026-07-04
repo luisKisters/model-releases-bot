@@ -87,12 +87,12 @@ The last two commands must reject the input as non-sendable. They must not retur
 
 ### Task 6: Cost And Secret Red Team
 
-- [ ] Verify live LLM usage records prompt tokens, completion tokens, model IDs, provider IDs, stage names, and cost.
-- [ ] Verify `--max-cost-usd` aborts before Telegram send if projected or actual cost exceeds the cap.
-- [ ] Verify offline mode uses deterministic fake usage and spends no provider tokens.
-- [ ] Verify missing `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY`, `ARTIFICIAL_ANALYSIS_API_KEY`, and Telegram env vars produce structured skips unless required by flags.
-- [ ] Verify no secret value appears in logs, JSON reports, fixtures, dashboard data, or notification records.
-- [ ] Run validation commands and fix all failures.
+- [x] Verify live LLM usage records prompt tokens, completion tokens, model IDs, provider IDs, stage names, and cost.
+- [x] Verify `--max-cost-usd` aborts before Telegram send if projected or actual cost exceeds the cap.
+- [x] Verify offline mode uses deterministic fake usage and spends no provider tokens.
+- [x] Verify missing `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY`, `ARTIFICIAL_ANALYSIS_API_KEY`, and Telegram env vars produce structured skips unless required by flags.
+- [x] Verify no secret value appears in logs, JSON reports, fixtures, dashboard data, or notification records.
+- [x] Run validation commands and fix all failures.
 
 ### Task 7: Telegram Send Red Team
 
