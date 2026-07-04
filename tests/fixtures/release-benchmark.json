@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "description": "Seed offline benchmark fixture. It covers the requested Telegram replay releases plus representative negative gate checks; the full two-per-lab corpus is still a later plan item.",
+  "version": 3,
+  "description": "Offline benchmark fixture corpus. Contains positive dedicated-article cases and a comprehensive red-team negative set covering all previously-noisy source types.",
   "cases": [
     {
       "id": "anthropic-claude-sonnet-5",
@@ -52,10 +52,9 @@
       "provider": "Cohere",
       "title": "Introducing Command A",
       "url": "https://cohere.com/blog/command-a",
-      "requires_live_reverify": true,
       "expected": {
         "shouldSend": false,
-        "modelNames": ["Command A"]
+        "modelNames": []
       }
     },
     {
@@ -63,11 +62,10 @@
       "provider": "Google Gemini",
       "title": "Gemini API models",
       "url": "https://ai.google.dev/gemini-api/docs/models",
-      "requires_live_reverify": true,
       "expected": {
         "shouldSend": false,
         "lab": "Google Gemini",
-        "modelNames": ["Gemini"]
+        "modelNames": []
       }
     },
     {
@@ -75,10 +73,105 @@
       "provider": "NVIDIA",
       "title": "NVIDIA Blackwell model deployment",
       "url": "https://developer.nvidia.com/blog/blackwell-ai-inference/",
-      "requires_live_reverify": true,
       "expected": {
         "shouldSend": false,
         "lab": "NVIDIA Nemotron",
+        "modelNames": []
+      }
+    },
+    {
+      "id": "red-team-deepseek-huggingface-org-update",
+      "provider": "DeepSeek",
+      "title": "deepseek-ai/DeepSeek-V4-Pro-DSpark updated: added model weights",
+      "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro-DSpark",
+      "summary": "Model weights and tokenizer for DeepSeek-V4-Pro-DSpark are now available.",
+      "expected": {
+        "shouldSend": false,
+        "lab": "DeepSeek",
+        "modelNames": []
+      }
+    },
+    {
+      "id": "red-team-xiaomi-mimo-huggingface",
+      "provider": "XiaomiMiMo",
+      "title": "MiMo-7B-RL-Zero: Xiaomi first open-source reasoning model",
+      "url": "https://huggingface.co/XiaomiMiMo/MiMo-7B-RL-Zero",
+      "expected": {
+        "shouldSend": false,
+        "modelNames": []
+      }
+    },
+    {
+      "id": "red-team-cohere-changelog",
+      "provider": "Cohere",
+      "title": "Classification endpoint now supports 1000 classes",
+      "url": "https://docs.cohere.com/changelog/classification-endpoint",
+      "expected": {
+        "shouldSend": false,
+        "modelNames": []
+      }
+    },
+    {
+      "id": "red-team-openrouter-gemini-catalog",
+      "provider": "Google Gemini",
+      "title": "google/gemini-2.5-pro - OpenRouter",
+      "url": "https://openrouter.ai/google/gemini-2.5-pro",
+      "expected": {
+        "shouldSend": false,
+        "lab": "Google Gemini",
+        "modelNames": []
+      }
+    },
+    {
+      "id": "red-team-google-ai-studio-docs",
+      "provider": "Google Gemini",
+      "title": "Gemini API models documentation",
+      "url": "https://ai.google.dev/gemini-api/docs/models/gemini-2.5-pro",
+      "expected": {
+        "shouldSend": false,
+        "lab": "Google Gemini",
+        "modelNames": []
+      }
+    },
+    {
+      "id": "red-team-nvidia-blackwell-broad",
+      "provider": "NVIDIA",
+      "title": "NVIDIA Blackwell AI inference platform update",
+      "url": "https://blogs.nvidia.com/blog/blackwell-ai-inference-platform/",
+      "expected": {
+        "shouldSend": false,
+        "lab": "NVIDIA Nemotron",
+        "modelNames": []
+      }
+    },
+    {
+      "id": "red-team-deepseek-generic-models-index",
+      "provider": "DeepSeek",
+      "title": "DeepSeek Models",
+      "url": "https://api-docs.deepseek.com/docs/models/",
+      "expected": {
+        "shouldSend": false,
+        "lab": "DeepSeek",
+        "modelNames": []
+      }
+    },
+    {
+      "id": "red-team-benchmark-only-page",
+      "provider": "ArtificialAnalysis",
+      "title": "DeepSeek V3 benchmark comparison on MMLU and HumanEval",
+      "url": "https://artificialanalysis.ai/models/deepseek-v3",
+      "expected": {
+        "shouldSend": false,
+        "modelNames": []
+      }
+    },
+    {
+      "id": "red-team-third-party-article",
+      "provider": "TechCrunch",
+      "title": "DeepSeek's new model beats GPT-4 on major benchmarks",
+      "url": "https://techcrunch.com/2025/01/01/deepseek-model-release/",
+      "expected": {
+        "shouldSend": false,
         "modelNames": []
       }
     }

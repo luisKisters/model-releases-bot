@@ -46,12 +46,12 @@ The last two commands must reject the input as non-sendable. They must not retur
 
 ### Task 2: Red-Team Source Eligibility
 
-- [ ] Build a red-team fixture set with previously bad examples: DeepSeek Hugging Face org update, Xiaomi MiMo Hugging Face org update, Cohere changelog entries, OpenRouter Gemini model page, Google AI Studio/Gemini docs page, broad NVIDIA Blackwell post, generic docs index, benchmark-only page, and third-party article.
-- [ ] Verify every red-team case is rejected before article extraction, LLM calls, or Telegram send.
-- [ ] Verify rejected cases still produce useful structured reasons for operators.
-- [ ] Verify no excluded source remains enabled and notifying in Convex source sync.
-- [ ] Verify first-run baseline behavior does not send old releases.
-- [ ] Run validation commands and fix all failures.
+- [x] Build a red-team fixture set with previously bad examples: DeepSeek Hugging Face org update, Xiaomi MiMo Hugging Face org update, Cohere changelog entries, OpenRouter Gemini model page, Google AI Studio/Gemini docs page, broad NVIDIA Blackwell post, generic docs index, benchmark-only page, and third-party article.
+- [x] Verify every red-team case is rejected before article extraction, LLM calls, or Telegram send.
+- [x] Verify rejected cases still produce useful structured reasons for operators.
+- [x] Verify no excluded source remains enabled and notifying in Convex source sync.
+- [x] Verify first-run baseline behavior does not send old releases.
+- [x] Run validation commands and fix all failures.
 
 ### Task 3: Red-Team Positive Coverage
 
