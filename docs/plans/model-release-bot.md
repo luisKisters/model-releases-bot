@@ -232,16 +232,16 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 14: DeepSeek V4 Required Acceptance Example
 
-- [ ] Run `npm run radar:smoke -- --dry-run --release-url https://api-docs.deepseek.com/news/news260424 --max-cost-usd 0.25`.
-- [ ] Confirm the source gate accepts it as `DeepSeek`, `official_dedicated_model_release_article`.
-- [ ] Confirm it extracts `DeepSeek-V4-Pro`, `DeepSeek-V4-Flash`, release date `2026/04/24`, tech report link, open weights link, API availability, and deprecation note for `deepseek-chat` and `deepseek-reasoner`.
-- [ ] Confirm Hugging Face links are recorded only as evidence, not as sendable release sources.
-- [ ] Confirm benchmark claims are marked vendor-provided unless supported by independent benchmark evidence.
-- [ ] Confirm safety/system-card status is explicit: found, not found, or not applicable, with no invented safety claims.
-- [ ] Confirm DeepSeek stage usage, Kimi final-writer usage, verifier status, and total estimated cost are present.
-- [ ] Confirm final Telegram text includes strengths, weaknesses/unknowns, benchmark context, safety/system notes, and sources.
-- [ ] Confirm no Telegram send happens in dry run.
-- [ ] Run the non-dry-run Telegram command only when Telegram env vars are present; otherwise record structured skip.
+- [x] Run `npm run radar:smoke -- --dry-run --release-url https://api-docs.deepseek.com/news/news260424 --max-cost-usd 0.25`.
+- [x] Confirm the source gate accepts it as `DeepSeek`, `official_dedicated_model_release_article`.
+- [x] Confirm it extracts `DeepSeek-V4-Pro`, `DeepSeek-V4-Flash`, release date `2026/04/24`, tech report link, open weights link, API availability, and deprecation note for `deepseek-chat` and `deepseek-reasoner`.
+- [x] Confirm Hugging Face links are recorded only as evidence, not as sendable release sources.
+- [x] Confirm benchmark claims are marked vendor-provided unless supported by independent benchmark evidence.
+- [x] Confirm safety/system-card status is explicit: found, not found, or not applicable, with no invented safety claims.
+- [x] Confirm DeepSeek stage usage, Kimi final-writer usage, verifier status, and total estimated cost are present.
+- [x] Confirm final Telegram text includes strengths, weaknesses/unknowns, benchmark context, safety/system notes, and sources.
+- [x] Confirm no Telegram send happens in dry run.
+- [x] Run the non-dry-run Telegram command only when Telegram env vars are present; otherwise record structured skip.
 
 ### Task 15: Dashboard And Operator Visibility
 
