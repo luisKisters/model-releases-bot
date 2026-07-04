@@ -1,5 +1,12 @@
-const MODEL_NAME_PATTERN =
-  /\b(?:gpt[-\w.]*|claude[-\w.]*|gemini[-\w.]*|grok[-\w.]*|llama[-\w.]*|mistral[-\w.]*|mixtral[-\w.]*|deepseek[-\w.]*|qwen[\w.-]*|kimi[-\w.]*|moonshot[-\w.]*|command[-\w.]*|jamba[-\w.]*|sonar[-\w.]*|glm[-\w.]*|minimax[-\w.]*|mimo[-\w.]*|nemotron[-\w.]*)\b/gi;
+const MODEL_NAME_PATTERNS = [
+  /\bClaude\s+(?:(?:Sonnet|Opus|Haiku|Fable|Mythos)\s+\d+(?:\.\d+)?|(?:\d+(?:\.\d+)?\s+)?(?:Sonnet|Opus|Haiku))\b/gi,
+  /\b(?:Sonnet|Opus|Haiku|Fable|Mythos)\s+\d+(?:\.\d+)?\b/gi,
+  /\bMistral\s+(?:Small|Medium|Large|OCR|Embed|Saba|Nemo|Codestral|Voxtral)\s+\d+(?:\.\d+)?\b/gi,
+  /\bEleven\s+v\d+(?:\.\d+)?\b/gi,
+  /\b(?:Scribe|Nova|Aura|Universal|Conformer)\s*[- ]?\d+(?:\.\d+)?\b/gi,
+  /\bCommand\s+[A-Z][A-Z0-9.+-]*\b/g,
+  /\b(?:gpt[-\w.]*|claude[-\w.]*|gemini[-\w.]*|grok[-\w.]*|llama[-\w.]*|mistral[-\w.]*|mixtral[-\w.]*|deepseek[-\w.]*|qwen[\w.-]*|kimi[-\w.]*|moonshot[-\w.]*|command[-\w.]*|jamba[-\w.]*|sonar[-\w.]*|glm[-\w.]*|minimax[-\w.]*|mimo[-\w.]*|nemotron[-\w.]*)\b/gi,
+];
 
 export function decodeEntities(value: string): string {
   return value
@@ -27,7 +34,7 @@ export function normalizeWhitespace(value: string): string {
 }
 
 export function extractModelNames(value: string): string[] {
-  const matches = value.match(MODEL_NAME_PATTERN) ?? [];
+  const matches = MODEL_NAME_PATTERNS.flatMap((pattern) => value.match(pattern) ?? []);
   const seen = new Set<string>();
 
   return matches

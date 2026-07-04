@@ -3,6 +3,8 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { normalizeModelName } from "../src/lib/radar/text";
 
+const STALE_SOURCE_DISABLE_BATCH_SIZE = 500;
+
 const sourceConfig = v.object({
   sourceId: v.string(),
   provider: v.string(),
@@ -20,6 +22,8 @@ const sourceConfig = v.object({
 export const syncSources = internalMutation({
   args: { sources: v.array(sourceConfig), now: v.number() },
   handler: async (ctx, args) => {
+    const configuredSourceIds = new Set(args.sources.map((source) => source.sourceId));
+
     for (const source of args.sources) {
       const existing = await ctx.db
         .query("sources")
@@ -54,8 +58,33 @@ export const syncSources = internalMutation({
         });
       }
     }
+
+    await disableStaleSources(ctx, configuredSourceIds);
   },
 });
+
+async function disableStaleSources(
+  ctx: MutationCtx,
+  configuredSourceIds: Set<string>,
+) {
+  const enabledSources = await ctx.db
+    .query("sources")
+    .withIndex("by_next_poll", (q) => q.eq("enabled", true))
+    .take(STALE_SOURCE_DISABLE_BATCH_SIZE);
+
+  for (const source of enabledSources) {
+    if (configuredSourceIds.has(source.sourceId)) {
+      continue;
+    }
+
+    await ctx.db.patch(source._id, {
+      enabled: false,
+      notify: false,
+      failureCount: 0,
+      lastError: "disabled: source removed from registry",
+    });
+  }
+}
 
 export const getDueSources = internalQuery({
   args: { now: v.number(), limit: v.number() },

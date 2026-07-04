@@ -34,6 +34,9 @@ describe("sourceRegistry", () => {
       "mimo",
       "openrouter",
       "huggingface-global",
+      "huggingface.co/deepseek-ai",
+      "huggingface.co/xiaomimimo",
+      "docs.cohere.com/changelog",
       "artificial-analysis",
     ]) {
       expect(serialized).not.toContain(excluded);

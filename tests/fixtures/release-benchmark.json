@@ -1,5 +1,86 @@
 {
-  "version": 1,
-  "description": "Starter offline benchmark fixture. Task 3 expands this into the full positive/negative corpus.",
-  "cases": []
+  "version": 2,
+  "description": "Seed offline benchmark fixture. It covers the requested Telegram replay releases plus representative negative gate checks; the full two-per-lab corpus is still a later plan item.",
+  "cases": [
+    {
+      "id": "anthropic-claude-sonnet-5",
+      "provider": "Anthropic",
+      "title": "Introducing Claude Sonnet 5",
+      "url": "https://www.anthropic.com/news/claude-sonnet-5",
+      "summary": "Claude Sonnet 5 is available as claude-sonnet-5 with a linked system card.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "Anthropic",
+        "modelNames": ["Claude Sonnet 5", "claude-sonnet-5"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "mistral-small-4",
+      "provider": "Mistral",
+      "title": "Introducing Mistral Small 4",
+      "url": "https://mistral.ai/news/mistral-small-4/",
+      "summary": "Mistral Small 4 is a multimodal, reasoning-capable open model available as mistral-small-latest.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "Mistral",
+        "modelNames": ["Mistral Small 4", "mistral-small-latest"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "elevenlabs-eleven-v3-ga",
+      "provider": "ElevenLabs",
+      "title": "Eleven v3 is Now Generally Available",
+      "url": "https://elevenlabs.io/blog/eleven-v3-is-now-generally-available",
+      "summary": "Eleven v3 is generally available as a Text to Speech model.",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "ElevenLabs",
+        "modelNames": ["Eleven v3"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+    {
+      "id": "cohere-command-a-excluded",
+      "provider": "Cohere",
+      "title": "Introducing Command A",
+      "url": "https://cohere.com/blog/command-a",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": false,
+        "modelNames": ["Command A"]
+      }
+    },
+    {
+      "id": "unsupported-gemini-docs",
+      "provider": "Google Gemini",
+      "title": "Gemini API models",
+      "url": "https://ai.google.dev/gemini-api/docs/models",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": false,
+        "lab": "Google Gemini",
+        "modelNames": ["Gemini"]
+      }
+    },
+    {
+      "id": "nvidia-non-nemotron",
+      "provider": "NVIDIA",
+      "title": "NVIDIA Blackwell model deployment",
+      "url": "https://developer.nvidia.com/blog/blackwell-ai-inference/",
+      "requires_live_reverify": true,
+      "expected": {
+        "shouldSend": false,
+        "lab": "NVIDIA Nemotron",
+        "modelNames": []
+      }
+    }
+  ]
 }
