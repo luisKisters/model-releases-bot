@@ -182,14 +182,14 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 10: Final Release Note Schema, Rendering, And Telegram
 
-- [ ] Implement `src/lib/radar/messages.ts` with a release-note schema containing title, lab, model names, release date, canonical source URL, summary, where it shines, strengths, weaknesses/unknowns, benchmark context, safety/system notes, evidence links, image/assets metadata, verifier status, and cost summary.
-- [ ] Telegram rendering must be concise, readable, and under Telegram length limits.
-- [ ] Telegram rendering must include source links and must not hide verification failures.
-- [ ] Implement destination-ready variants for plain text and Telegram. Do not send Markdown unless the escaping is correct and tested.
-- [ ] Replace raw `formatTelegramSignal` sends for model releases with verified release-note rendering.
-- [ ] Keep source failure alerts separate from release alerts and make them clearly operational, not model-release announcements.
-- [ ] Add tests for long messages, source-link formatting, special characters, Unicode model names, Telegram length truncation, and no send on unverified note.
-- [ ] Run validation commands and fix all failures.
+- [x] Implement `src/lib/radar/messages.ts` with a release-note schema containing title, lab, model names, release date, canonical source URL, summary, where it shines, strengths, weaknesses/unknowns, benchmark context, safety/system notes, evidence links, image/assets metadata, verifier status, and cost summary.
+- [x] Telegram rendering must be concise, readable, and under Telegram length limits.
+- [x] Telegram rendering must include source links and must not hide verification failures.
+- [x] Implement destination-ready variants for plain text and Telegram. Do not send Markdown unless the escaping is correct and tested.
+- [x] Replace raw `formatTelegramSignal` sends for model releases with verified release-note rendering.
+- [x] Keep source failure alerts separate from release alerts and make them clearly operational, not model-release announcements.
+- [x] Add tests for long messages, source-link formatting, special characters, Unicode model names, Telegram length truncation, and no send on unverified note.
+- [x] Run validation commands and fix all failures.
 
 ### Task 11: Convex Persistence And Scheduled Polling
 

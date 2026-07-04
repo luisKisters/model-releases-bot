@@ -7,6 +7,7 @@ import {
   selectReleaseReplayCases,
 } from "../src/lib/radar/releaseMessages.ts";
 import { sendTelegramMessage, telegramConfigured } from "../src/lib/radar/telegram.ts";
+import { renderReleaseNoteForTelegram } from "../src/lib/radar/messages.ts";
 
 loadLocalEnv();
 
@@ -41,13 +42,12 @@ if (releaseUrl) {
     secretStatus,
     missingPipeline: [
       "LLM routing (Task 8 — module implemented, not yet wired into smoke)",
-      "Agent orchestration (Task 9)",
-      "Final message rendering (Task 10)",
+      "Agent orchestration (Task 9 — module implemented, not yet wired into smoke)",
       "Convex persistence (Task 11)",
       "Live smoke CLI (Task 13)",
     ],
     detail:
-      "The full article→LLM→verifier pipeline for --release-url requires Tasks 9-13. " +
+      "The full article→LLM→verifier pipeline for --release-url requires Tasks 11-13. " +
       "Use --release-ids for replay-based smoke runs.",
   };
   console.log(JSON.stringify(result, null, 2));
