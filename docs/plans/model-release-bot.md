@@ -144,15 +144,15 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 7: Benchmark Evidence And Artificial Analysis
 
-- [ ] Implement `src/lib/radar/benchmarks.ts`.
-- [ ] Add an Artificial Analysis client for free endpoints: language, text-to-speech, speech-to-speech, and speech-to-text.
-- [ ] Support optional `ARTIFICIAL_ANALYSIS_API_KEY`; missing key must produce structured skip, not failure, unless a live command explicitly requires it.
-- [ ] Normalize benchmark claims from article text, system cards, technical reports, official benchmark links, Artificial Analysis rows, and other configured official evidence.
-- [ ] Map lab/model modality to relevant benchmarks: language, coding, reasoning, multimodal, STT, TTS, S2S, latency, throughput, price/performance.
-- [ ] Compare important claims as `supported`, `contradicted`, `missing`, or `not_comparable`.
-- [ ] Attribute Artificial Analysis data whenever it is used.
-- [ ] Add tests for available benchmark data, missing AA key, rate limits, model not found, modality mismatch, vendor-only benchmark claims, and contradiction handling.
-- [ ] Run validation commands and fix all failures.
+- [x] Implement `src/lib/radar/benchmarks.ts`.
+- [x] Add an Artificial Analysis client for free endpoints: language, text-to-speech, speech-to-speech, and speech-to-text.
+- [x] Support optional `ARTIFICIAL_ANALYSIS_API_KEY`; missing key must produce structured skip, not failure, unless a live command explicitly requires it.
+- [x] Normalize benchmark claims from article text, system cards, technical reports, official benchmark links, Artificial Analysis rows, and other configured official evidence.
+- [x] Map lab/model modality to relevant benchmarks: language, coding, reasoning, multimodal, STT, TTS, S2S, latency, throughput, price/performance.
+- [x] Compare important claims as `supported`, `contradicted`, `missing`, or `not_comparable`.
+- [x] Attribute Artificial Analysis data whenever it is used.
+- [x] Add tests for available benchmark data, missing AA key, rate limits, model not found, modality mismatch, vendor-only benchmark claims, and contradiction handling.
+- [x] Run validation commands and fix all failures.
 
 ### Task 8: DeepSeek, OpenRouter Kimi, Fake Clients, And Cost Accounting
 
