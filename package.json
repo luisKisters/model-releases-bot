@@ -1,0 +1,33 @@
+{
+  "name": "model-releases-bot",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "convex:dev": "convex dev",
+    "convex:codegen": "convex codegen",
+    "radar:eval": "node scripts/radar-eval.mjs",
+    "radar:smoke": "node scripts/radar-smoke.mjs",
+    "radar:browser:install": "npx playwright install chromium",
+    "telegram:test": "node scripts/send-telegram-test.mjs",
+    "telegram:chats": "node scripts/list-telegram-chats.mjs"
+  },
+  "dependencies": {
+    "convex": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}
