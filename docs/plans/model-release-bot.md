@@ -111,14 +111,14 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 4: Fetching, Browser Tools, Article Extraction, And Assets
 
-- [ ] Implement `src/lib/radar/fetching.ts` with HTTP timeout, retry policy, content-type validation, canonical URL extraction, robots-aware user agent configuration, redirect handling, and sanitized snapshot output.
-- [ ] Implement `src/lib/radar/browserTools.ts` with Playwright-backed open, snapshot, readable extraction, link discovery, screenshot, image probing, and PDF/download retrieval.
-- [ ] Provide an HTTP-only fallback that returns `reducedConfidence: true` and explains missing browser capability.
-- [ ] Extract title, canonical URL, publication date, update date, article body, author/publisher when present, headings, outbound links, images, and downloadable assets.
-- [ ] Verify images/assets resolve and record content type, byte size, dimensions when available, alt text, and source URL. Do not store raw binaries in fixtures.
-- [ ] Add sanitized fixture snapshots for representative articles, including DeepSeek V4, Anthropic Claude, OpenAI, Gemini, Mistral, Deepgram, ElevenLabs, and AssemblyAI.
-- [ ] Add tests for JavaScript-heavy pages, canonical URL mismatches, redirects, missing article body, broken images, and browser fallback behavior.
-- [ ] Run validation commands and fix all failures.
+- [x] Implement `src/lib/radar/fetching.ts` with HTTP timeout, retry policy, content-type validation, canonical URL extraction, robots-aware user agent configuration, redirect handling, and sanitized snapshot output.
+- [x] Implement `src/lib/radar/browserTools.ts` with Playwright-backed open, snapshot, readable extraction, link discovery, screenshot, image probing, and PDF/download retrieval.
+- [x] Provide an HTTP-only fallback that returns `reducedConfidence: true` and explains missing browser capability.
+- [x] Extract title, canonical URL, publication date, update date, article body, author/publisher when present, headings, outbound links, images, and downloadable assets.
+- [x] Verify images/assets resolve and record content type, byte size, dimensions when available, alt text, and source URL. Do not store raw binaries in fixtures.
+- [x] Add sanitized fixture snapshots for representative articles, including DeepSeek V4, Anthropic Claude, OpenAI, Gemini, Mistral, Deepgram, ElevenLabs, and AssemblyAI.
+- [x] Add tests for JavaScript-heavy pages, canonical URL mismatches, redirects, missing article body, broken images, and browser fallback behavior.
+- [x] Run validation commands and fix all failures.
 
 ### Task 5: Fixture Corpus And Offline Oracle
 

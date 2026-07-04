@@ -102,3 +102,55 @@ export type PollFailure = {
 };
 
 export type PollResult = PollSuccess | PollFailure;
+
+export type FetchOptions = {
+  timeoutMs?: number;
+  maxRetries?: number;
+  userAgent?: string;
+};
+
+export type FetchedContent = {
+  url: string;
+  finalUrl: string;
+  statusCode: number;
+  contentType: string;
+  isRedirected: boolean;
+  body: string;
+  etag?: string;
+  lastModified?: string;
+};
+
+export type ImageAsset = {
+  src: string;
+  altText: string | null;
+  contentType: string | null;
+  byteSize: number | null;
+  width: number | null;
+  height: number | null;
+  resolves: boolean;
+};
+
+export type DownloadableAsset = {
+  url: string;
+  contentType: string | null;
+  byteSize: number | null;
+  filename: string | null;
+};
+
+export type ExtractedArticle = {
+  url: string;
+  canonicalUrl: string | null;
+  finalUrl: string;
+  title: string | null;
+  author: string | null;
+  publisher: string | null;
+  publishedAt: string | null;
+  updatedAt: string | null;
+  body: string | null;
+  headings: string[];
+  outboundLinks: string[];
+  images: ImageAsset[];
+  downloadableAssets: DownloadableAsset[];
+  reducedConfidence: boolean;
+  missingBrowserReason?: string;
+};
