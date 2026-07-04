@@ -1,5 +1,13 @@
 import type { SourceConfig } from "./types";
 
+export type ArticleGateChecks = {
+  selected_lab: boolean;
+  official_domain: boolean;
+  dedicated_article: boolean;
+  model_release_language: boolean;
+  lab_specific_constraint: boolean;
+};
+
 export type ArticleGateCandidate = {
   provider: string;
   title: string;
@@ -9,8 +17,9 @@ export type ArticleGateCandidate = {
 
 export type ArticleGateDecision = {
   shouldSend: boolean;
-  reason: string;
+  checks: ArticleGateChecks;
   lab?: string;
+  reason: string;
 };
 
 type LabRule = {
@@ -37,7 +46,12 @@ const LAB_RULES: LabRule[] = [
     lab: "Google Gemini",
     providers: ["Google Gemini"],
     hosts: ["blog.google", "deepmind.google", "developers.googleblog.com"],
-    rejectedHosts: ["ai.google.dev", "openrouter.ai"],
+    rejectedHosts: [
+      "ai.google.dev",
+      "aistudio.google.com",
+      "gemini.google.com",
+      "openrouter.ai",
+    ],
   },
   {
     lab: "Mistral",
@@ -70,68 +84,95 @@ const LAB_RULES: LabRule[] = [
     lab: "Deepgram",
     providers: ["Deepgram"],
     hosts: ["deepgram.com", "www.deepgram.com", "developers.deepgram.com"],
-    rejectedPath: /^\/changelog\/?$/i,
+    rejectedPath: /^\/changelog(?:\/|$)/i,
   },
   {
     lab: "ElevenLabs",
     providers: ["ElevenLabs"],
     hosts: ["elevenlabs.io", "www.elevenlabs.io"],
-    rejectedPath: /^\/docs\/changelog\/?$/i,
+    rejectedPath: /^\/docs\/changelog(?:\/|$)/i,
   },
   {
     lab: "AssemblyAI",
     providers: ["AssemblyAI"],
     hosts: ["assemblyai.com", "www.assemblyai.com"],
-    rejectedPath: /^\/changelog\/?$/i,
+    rejectedPath: /^\/changelog(?:\/|$)|^\/collection\/releases(?:\/|$)/i,
   },
 ];
 
 const MODEL_RELEASE_TEXT =
   /model|release|released|launch|launched|introducing|introduce|announc|available|gpt|claude|gemini|llama|mistral|deepseek|grok|nemotron|nova|aura|scribe|universal|conformer|eleven\s*v/i;
 
+// Reject root indexes, feed URLs, model catalogs, changelogs, docs roots, and
+// release-notes pages that are never dedicated release articles.
 const GENERIC_SOURCE_PATH =
-  /^\/?$|^\/news\/?$|^\/blog\/?$|\/rss\.xml$|\/index\.xml$|\/feed(?:\/|\.xml)?$|\/models\/?$|\/docs\/models\/?$/i;
+  /^\/?$|^\/news\/?$|^\/blog\/?$|\/rss\.xml$|\/index\.xml$|\/feed(?:\/|\.xml)?$|^\/models\/?$|^\/docs\/models\/?$|^\/changelog\/?$|^\/release-notes\/?$|^\/docs\/?$|^\/collection\/?$/i;
+
+const FALSE_CHECKS: ArticleGateChecks = {
+  selected_lab: false,
+  official_domain: false,
+  dedicated_article: false,
+  model_release_language: false,
+  lab_specific_constraint: false,
+};
 
 export function evaluateArticleGate(candidate: ArticleGateCandidate): ArticleGateDecision {
   const provider = candidate.source?.provider ?? candidate.provider;
   const rule = LAB_RULES.find((entry) => entry.providers.includes(provider));
 
   if (!rule) {
-    return { shouldSend: false, reason: "unselected_lab" };
+    return { shouldSend: false, reason: "unselected_lab", checks: { ...FALSE_CHECKS } };
   }
+
+  const checks: ArticleGateChecks = {
+    selected_lab: true,
+    official_domain: false,
+    dedicated_article: false,
+    model_release_language: false,
+    lab_specific_constraint: false,
+  };
 
   const url = candidate.url ?? candidate.source?.url;
   if (!url) {
-    return { shouldSend: false, reason: "missing_article_url", lab: rule.lab };
+    return { shouldSend: false, reason: "missing_article_url", lab: rule.lab, checks };
   }
 
   const parsedUrl = parseUrl(url);
   if (!parsedUrl) {
-    return { shouldSend: false, reason: "invalid_article_url", lab: rule.lab };
+    return { shouldSend: false, reason: "invalid_article_url", lab: rule.lab, checks };
   }
 
   if (rule.rejectedHosts?.some((host) => hostMatches(parsedUrl.hostname, host))) {
-    return { shouldSend: false, reason: "unsupported_source_host", lab: rule.lab };
+    return { shouldSend: false, reason: "unsupported_source_host", lab: rule.lab, checks };
   }
 
   if (!rule.hosts.some((host) => hostMatches(parsedUrl.hostname, host))) {
-    return { shouldSend: false, reason: "not_official_domain", lab: rule.lab };
+    return { shouldSend: false, reason: "not_official_domain", lab: rule.lab, checks };
   }
+
+  checks.official_domain = true;
 
   if (GENERIC_SOURCE_PATH.test(parsedUrl.pathname) || rule.rejectedPath?.test(parsedUrl.pathname)) {
-    return { shouldSend: false, reason: "not_dedicated_article", lab: rule.lab };
+    return { shouldSend: false, reason: "not_dedicated_article", lab: rule.lab, checks };
   }
+
+  checks.dedicated_article = true;
 
   const searchable = `${candidate.title} ${parsedUrl.href}`;
+
   if (rule.requiredText && !rule.requiredText.test(searchable)) {
-    return { shouldSend: false, reason: "lab_specific_requirement_failed", lab: rule.lab };
+    return { shouldSend: false, reason: "lab_specific_requirement_failed", lab: rule.lab, checks };
   }
+
+  checks.lab_specific_constraint = true;
 
   if (!MODEL_RELEASE_TEXT.test(searchable)) {
-    return { shouldSend: false, reason: "not_model_release", lab: rule.lab };
+    return { shouldSend: false, reason: "not_model_release", lab: rule.lab, checks };
   }
 
-  return { shouldSend: true, reason: "official_dedicated_model_release_article", lab: rule.lab };
+  checks.model_release_language = true;
+
+  return { shouldSend: true, reason: "official_dedicated_model_release_article", lab: rule.lab, checks };
 }
 
 function parseUrl(value: string): URL | null {

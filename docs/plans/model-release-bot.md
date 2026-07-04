@@ -100,14 +100,14 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 3: Article Gate And Source Eligibility
 
-- [ ] Implement a strict article gate for selected lab, official domain, dedicated article path, new model-release language, and lab-specific constraints.
-- [ ] The gate must return structured reasons such as `selected_lab`, `official_domain`, `dedicated_article`, `model_release_language`, `lab_specific_constraint`, and final `shouldSend`.
-- [ ] Reject model-card-only, docs-index-only, changelog-only, release-notes-only, catalog-only, benchmark-only, social-only, third-party-only, and generic homepage candidates.
-- [ ] Reject unsupported Gemini source types: OpenRouter, AI Studio model pages, and API docs pages unless linked from an official dedicated blog article.
-- [ ] Reject non-Nemotron NVIDIA posts even if the title contains `model`.
-- [ ] Add at least two positive article-gate tests per selected lab where public history allows it; if a lab has fewer than two official examples, add an explicit fixture waiver with evidence.
-- [ ] Add negative tests for Cohere, Qwen, Kimi, Z.ai, MiniMax, Xiaomi MiMo, DeepSeek Hugging Face-only, Xiaomi Hugging Face-only, and broad NVIDIA.
-- [ ] Run validation commands and fix all failures.
+- [x] Implement a strict article gate for selected lab, official domain, dedicated article path, new model-release language, and lab-specific constraints.
+- [x] The gate must return structured reasons such as `selected_lab`, `official_domain`, `dedicated_article`, `model_release_language`, `lab_specific_constraint`, and final `shouldSend`.
+- [x] Reject model-card-only, docs-index-only, changelog-only, release-notes-only, catalog-only, benchmark-only, social-only, third-party-only, and generic homepage candidates.
+- [x] Reject unsupported Gemini source types: OpenRouter, AI Studio model pages, and API docs pages unless linked from an official dedicated blog article.
+- [x] Reject non-Nemotron NVIDIA posts even if the title contains `model`.
+- [x] Add at least two positive article-gate tests per selected lab where public history allows it; if a lab has fewer than two official examples, add an explicit fixture waiver with evidence.
+- [x] Add negative tests for Cohere, Qwen, Kimi, Z.ai, MiniMax, Xiaomi MiMo, DeepSeek Hugging Face-only, Xiaomi Hugging Face-only, and broad NVIDIA.
+- [x] Run validation commands and fix all failures.
 
 ### Task 4: Fetching, Browser Tools, Article Extraction, And Assets
 
