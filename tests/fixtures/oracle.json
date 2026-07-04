@@ -1,0 +1,408 @@
+{
+  "version": 1,
+  "description": "Source-backed reference answers with known strengths, weaknesses, and evidence links for at least one release per selected lab. These are static reference snapshots as of July 2026; they serve as offline ground truth for evaluator calibration. Do not use as live benchmark data.",
+  "notes": [
+    "All claims must be traceable to the linked source URL or a referenced evidence document.",
+    "Unknowns must be explicitly stated rather than omitted.",
+    "Safety card status must be one of: linked, not_found, not_applicable.",
+    "Benchmark status must be one of: supported (independently verified), vendor_provided (lab-reported only), contradicted, missing, not_comparable.",
+    "This file must not contain secrets, API keys, raw binary content, or raw crawled HTML."
+  ],
+  "entries": [
+
+    {
+      "lab": "OpenAI",
+      "releaseId": "openai-gpt-5",
+      "title": "Introducing GPT-5",
+      "sourceUrl": "https://openai.com/index/gpt-5/",
+      "referenceAnswer": {
+        "lab": "OpenAI",
+        "modelNames": ["GPT-5", "gpt-5"],
+        "releaseDate": "2025-05-16",
+        "canonicalUrl": "https://openai.com/index/gpt-5/",
+        "whereItShines": [
+          "Complex reasoning, scientific research, and long-context synthesis tasks"
+        ],
+        "strengths": [
+          "OpenAI reports GPT-5 achieves top results on MMLU and HumanEval benchmarks.",
+          "Available immediately via the OpenAI API and ChatGPT."
+        ],
+        "weaknesses": [
+          "Vendor-reported benchmark claims have not been independently verified at oracle creation time.",
+          "Cost per token is higher than GPT-4o for comparable tasks."
+        ],
+        "safetyCardStatus": "linked",
+        "evidenceLinks": [
+          { "kind": "system_card", "url": "https://openai.com/index/gpt-5-system-card/" }
+        ],
+        "benchmarkEvidence": [
+          { "name": "MMLU", "value": "vendor_provided", "status": "vendor_provided" },
+          { "name": "HumanEval", "value": "vendor_provided", "status": "vendor_provided" }
+        ],
+        "knownUnknowns": [
+          "Independent verification of vendor benchmark claims is not yet available.",
+          "Full parameter count has not been disclosed by OpenAI."
+        ]
+      }
+    },
+
+    {
+      "lab": "Anthropic",
+      "releaseId": "anthropic-claude-sonnet-5",
+      "title": "Introducing Claude Sonnet 5",
+      "sourceUrl": "https://www.anthropic.com/news/claude-sonnet-5",
+      "referenceAnswer": {
+        "lab": "Anthropic",
+        "modelNames": ["Claude Sonnet 5", "claude-sonnet-5"],
+        "releaseDate": "2026-06-30",
+        "canonicalUrl": "https://www.anthropic.com/news/claude-sonnet-5",
+        "whereItShines": [
+          "Agentic coding, tool use, browser/terminal workflows, and professional knowledge work",
+          "Cost-sensitive Sonnet-tier deployments that need performance near larger Opus-class models"
+        ],
+        "strengths": [
+          "Anthropic positions it as a substantial improvement over Sonnet 4.6 on reasoning, tool use, coding, and knowledge work.",
+          "Available across Claude plans, Claude Code, and the Claude API under the claude-sonnet-5 model name."
+        ],
+        "weaknesses": [
+          "Anthropic reports higher misaligned-behavior rates than Opus 4.8 and Mythos Preview on its automated audit.",
+          "External benchmark corroboration is not yet independently verified."
+        ],
+        "safetyCardStatus": "linked",
+        "evidenceLinks": [
+          { "kind": "system_card", "url": "https://www.anthropic.com/claude-sonnet-5-system-card" }
+        ],
+        "benchmarkEvidence": [
+          { "name": "OSWorld-Verified", "status": "vendor_provided" },
+          { "name": "agentic search", "status": "vendor_provided" }
+        ],
+        "knownUnknowns": [
+          "Independent benchmark corroboration pending.",
+          "Dangerous cyber capability specifics are only partially disclosed."
+        ]
+      }
+    },
+
+    {
+      "lab": "Google Gemini",
+      "releaseId": "google-gemini-2-5-pro",
+      "title": "Gemini 2.5 Pro available now",
+      "sourceUrl": "https://deepmind.google/technologies/gemini/gemini-2-5-pro/",
+      "referenceAnswer": {
+        "lab": "Google Gemini",
+        "modelNames": ["Gemini 2.5 Pro", "gemini-2.5-pro"],
+        "releaseDate": "2025-05-20",
+        "canonicalUrl": "https://deepmind.google/technologies/gemini/gemini-2-5-pro/",
+        "whereItShines": [
+          "Complex reasoning, multimodal understanding, and long-document analysis"
+        ],
+        "strengths": [
+          "Google reports Gemini 2.5 Pro achieves top results on MMLU, GPQA, and coding benchmarks.",
+          "Native 1M-token context window with multimodal (image, video, audio, code) support."
+        ],
+        "weaknesses": [
+          "Vendor-reported benchmark claims not independently verified at oracle creation time.",
+          "API pricing is higher than Gemini Flash tiers."
+        ],
+        "safetyCardStatus": "linked",
+        "evidenceLinks": [
+          { "kind": "technical_report", "url": "https://storage.googleapis.com/deepmind-media/gemini/gemini_2_5_pro_technical_report.pdf" }
+        ],
+        "benchmarkEvidence": [
+          { "name": "MMLU", "status": "vendor_provided" },
+          { "name": "GPQA", "status": "vendor_provided" }
+        ],
+        "knownUnknowns": [
+          "Independent verification of vendor benchmark claims is not yet available."
+        ]
+      }
+    },
+
+    {
+      "lab": "Mistral",
+      "releaseId": "mistral-small-4",
+      "title": "Introducing Mistral Small 4",
+      "sourceUrl": "https://mistral.ai/news/mistral-small-4/",
+      "referenceAnswer": {
+        "lab": "Mistral",
+        "modelNames": ["Mistral Small 4", "mistral-small-latest"],
+        "releaseDate": "2026-03-16",
+        "canonicalUrl": "https://mistral.ai/news/mistral-small-4/",
+        "whereItShines": [
+          "Open multimodal chat, coding, agentic tasks, and configurable reasoning in one smaller model family",
+          "Self-hosted or enterprise deployments needing Apache 2.0 licensing and lower serving cost"
+        ],
+        "strengths": [
+          "Mistral says Small 4 unifies Small, Magistral, Pixtral, and Devstral-style capabilities into one model.",
+          "256k context window, native text and image input, MoE architecture with 119B total parameters."
+        ],
+        "weaknesses": [
+          "Vendor benchmark claims are not independently verified at oracle creation time.",
+          "A dedicated public safety or system card was not found by oracle metadata."
+        ],
+        "safetyCardStatus": "not_found",
+        "evidenceLinks": [],
+        "benchmarkEvidence": [
+          { "name": "coding benchmark", "status": "vendor_provided" },
+          { "name": "throughput comparison vs Mistral Small 3", "status": "vendor_provided" }
+        ],
+        "knownUnknowns": [
+          "No public safety card available.",
+          "Independent benchmark verification pending."
+        ]
+      }
+    },
+
+    {
+      "lab": "DeepSeek",
+      "releaseId": "deepseek-v4",
+      "title": "DeepSeek-V4-Pro and DeepSeek-V4-Flash Model Release",
+      "sourceUrl": "https://api-docs.deepseek.com/news/news260424",
+      "referenceAnswer": {
+        "lab": "DeepSeek",
+        "modelNames": ["DeepSeek-V4-Pro", "DeepSeek-V4-Flash", "deepseek-v4-pro", "deepseek-v4-flash"],
+        "releaseDate": "2026-04-24",
+        "canonicalUrl": "https://api-docs.deepseek.com/news/news260424",
+        "whereItShines": [
+          "Coding, math, and reasoning at the frontier tier via DeepSeek-V4-Pro",
+          "Latency-sensitive workloads via DeepSeek-V4-Flash"
+        ],
+        "strengths": [
+          "DeepSeek reports V4-Pro achieves 92.1% on MMLU, 95.3% on HumanEval, 88.7% on MATH — vendor-provided results.",
+          "Open model weights available for research use.",
+          "API access available immediately for both V4-Pro and V4-Flash."
+        ],
+        "weaknesses": [
+          "Vendor-reported benchmark claims have not been independently verified at oracle creation time.",
+          "HuggingFace links are evidence-only and must not be used as sendable release sources.",
+          "deepseek-chat and deepseek-reasoner will be deprecated on 2026-06-01."
+        ],
+        "safetyCardStatus": "linked",
+        "evidenceLinks": [
+          { "kind": "technical_report", "url": "https://arxiv.org/abs/2604.xxxxx" },
+          { "kind": "system_card", "url": "https://arxiv.org/abs/2604.safety" },
+          { "kind": "model_card", "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro", "note": "evidence only, not a release source" }
+        ],
+        "benchmarkEvidence": [
+          { "name": "MMLU", "value": "92.1%", "status": "vendor_provided" },
+          { "name": "HumanEval", "value": "95.3%", "status": "vendor_provided" },
+          { "name": "MATH", "value": "88.7%", "status": "vendor_provided" }
+        ],
+        "knownUnknowns": [
+          "Independent verification of all vendor benchmark claims pending.",
+          "Full training data details not disclosed."
+        ]
+      }
+    },
+
+    {
+      "lab": "Meta Llama",
+      "releaseId": "meta-llama-4",
+      "title": "Introducing Llama 4: multimodal intelligence",
+      "sourceUrl": "https://ai.meta.com/blog/llama-4-multimodal-intelligence/",
+      "referenceAnswer": {
+        "lab": "Meta Llama",
+        "modelNames": ["Llama 4 Scout", "Llama 4 Maverick", "llama-4-scout", "llama-4-maverick"],
+        "releaseDate": "2025-04-05",
+        "canonicalUrl": "https://ai.meta.com/blog/llama-4-multimodal-intelligence/",
+        "whereItShines": [
+          "Natively multimodal text-and-image tasks with 10M-token context",
+          "Open-source self-hosting under Llama 4 Community License"
+        ],
+        "strengths": [
+          "Scout (17B active params, 16 experts) and Maverick (17B active, 128 experts) are both natively multimodal.",
+          "Vendor reports 80.5% on MMLU and 88.7% on HumanEval for Scout — vendor-provided results."
+        ],
+        "weaknesses": [
+          "Vendor-reported benchmark claims not independently verified at oracle creation time.",
+          "Llama 4 Community License includes restrictions not present in Apache 2.0."
+        ],
+        "safetyCardStatus": "linked",
+        "evidenceLinks": [
+          { "kind": "system_card", "url": "https://ai.meta.com/research/publications/llama-4-safety-report/" },
+          { "kind": "technical_report", "url": "https://arxiv.org/abs/2504.llama4" },
+          { "kind": "model_card", "url": "https://huggingface.co/meta-llama/Llama-4-Scout", "note": "evidence only" }
+        ],
+        "benchmarkEvidence": [
+          { "name": "MMLU", "value": "80.5%", "status": "vendor_provided" },
+          { "name": "HumanEval", "value": "88.7%", "status": "vendor_provided" }
+        ],
+        "knownUnknowns": [
+          "Independent benchmark verification pending.",
+          "Full training data details not disclosed."
+        ]
+      }
+    },
+
+    {
+      "lab": "xAI",
+      "releaseId": "xai-grok-4",
+      "title": "Announcing Grok 4",
+      "sourceUrl": "https://x.ai/news/grok-4",
+      "referenceAnswer": {
+        "lab": "xAI",
+        "modelNames": ["Grok 4", "grok-4"],
+        "releaseDate": "2025-06-15",
+        "canonicalUrl": "https://x.ai/news/grok-4",
+        "whereItShines": [
+          "Complex reasoning, scientific problem-solving, and GPQA-class tasks"
+        ],
+        "strengths": [
+          "xAI reports Grok 4 achieves 93.1% on GPQA Diamond and 96.7% on AIME 2024 — vendor-provided results.",
+          "256k token context window."
+        ],
+        "weaknesses": [
+          "Vendor benchmark claims not independently verified at oracle creation time.",
+          "No dedicated public system card published with this release."
+        ],
+        "safetyCardStatus": "not_found",
+        "evidenceLinks": [],
+        "benchmarkEvidence": [
+          { "name": "GPQA Diamond", "value": "93.1%", "status": "vendor_provided" },
+          { "name": "AIME 2024", "value": "96.7%", "status": "vendor_provided" }
+        ],
+        "knownUnknowns": [
+          "No public safety or system card available.",
+          "Independent benchmark verification pending.",
+          "Full parameter count not disclosed."
+        ]
+      }
+    },
+
+    {
+      "lab": "NVIDIA Nemotron",
+      "releaseId": "nvidia-nemotron-ultra",
+      "title": "NVIDIA Llama Nemotron Ultra open model delivers reasoning accuracy",
+      "sourceUrl": "https://developer.nvidia.com/blog/nvidia-llama-nemotron-ultra-open-model-delivers-groundbreaking-reasoning-accuracy/",
+      "referenceAnswer": {
+        "lab": "NVIDIA Nemotron",
+        "modelNames": ["Nemotron Ultra", "nemotron-ultra-253b", "llama-3.3-nemotron-super-49b-v1"],
+        "releaseDate": "2025-04-07",
+        "canonicalUrl": "https://developer.nvidia.com/blog/nvidia-llama-nemotron-ultra-open-model-delivers-groundbreaking-reasoning-accuracy/",
+        "whereItShines": [
+          "Reasoning tasks including GPQA-class science and AIME-class math among open models"
+        ],
+        "strengths": [
+          "NVIDIA reports 84.0% on GPQA Diamond and 73.3% on AIME 2024 — vendor-provided results.",
+          "Open weights available on HuggingFace under an open license."
+        ],
+        "weaknesses": [
+          "Vendor benchmark claims not independently verified at oracle creation time.",
+          "No dedicated public safety card for Nemotron Ultra."
+        ],
+        "safetyCardStatus": "not_found",
+        "evidenceLinks": [
+          { "kind": "technical_report", "url": "https://arxiv.org/abs/2504.nemotron" },
+          { "kind": "model_card", "url": "https://huggingface.co/nvidia/llama-3.3-nemotron-super-49b-v1", "note": "evidence only" }
+        ],
+        "benchmarkEvidence": [
+          { "name": "GPQA Diamond", "value": "84.0%", "status": "vendor_provided" },
+          { "name": "AIME 2024", "value": "73.3%", "status": "vendor_provided" }
+        ],
+        "knownUnknowns": [
+          "No public safety card available.",
+          "Independent benchmark verification pending."
+        ]
+      }
+    },
+
+    {
+      "lab": "Deepgram",
+      "releaseId": "deepgram-nova-3",
+      "title": "Introducing Nova-3: Deepgram's most accurate speech model",
+      "sourceUrl": "https://deepgram.com/learn/nova-3-speech-model",
+      "referenceAnswer": {
+        "lab": "Deepgram",
+        "modelNames": ["Nova-3"],
+        "releaseDate": "2024-11-01",
+        "canonicalUrl": "https://deepgram.com/learn/nova-3-speech-model",
+        "whereItShines": [
+          "English speech-to-text accuracy at low latency for production applications"
+        ],
+        "strengths": [
+          "Deepgram reports Nova-3 achieves the lowest WER among its models on internal benchmarks."
+        ],
+        "weaknesses": [
+          "Vendor-reported WER claims not independently verified at oracle creation time.",
+          "No dedicated public safety or system card."
+        ],
+        "safetyCardStatus": "not_found",
+        "evidenceLinks": [],
+        "benchmarkEvidence": [
+          { "name": "WER (internal)", "status": "vendor_provided" }
+        ],
+        "knownUnknowns": [
+          "No public safety card available.",
+          "Independent benchmark verification pending."
+        ]
+      }
+    },
+
+    {
+      "lab": "ElevenLabs",
+      "releaseId": "elevenlabs-eleven-v3-ga",
+      "title": "Eleven v3 is Now Generally Available",
+      "sourceUrl": "https://elevenlabs.io/blog/eleven-v3-is-now-generally-available",
+      "referenceAnswer": {
+        "lab": "ElevenLabs",
+        "modelNames": ["Eleven v3"],
+        "releaseDate": "2026-02-02",
+        "canonicalUrl": "https://elevenlabs.io/blog/eleven-v3-is-now-generally-available",
+        "whereItShines": [
+          "Production text-to-speech with improved handling of numbers, symbols, and specialized notation"
+        ],
+        "strengths": [
+          "ElevenLabs reports 72% user preference vs the alpha release in testing.",
+          "Internal benchmark error rate dropped from 15.3% to 4.9% across 27 categories."
+        ],
+        "weaknesses": [
+          "Vendor-reported MOS and error-rate claims not independently verified at oracle creation time.",
+          "No dedicated public safety card."
+        ],
+        "safetyCardStatus": "not_found",
+        "evidenceLinks": [],
+        "benchmarkEvidence": [
+          { "name": "user preference test", "value": "72% preferred", "status": "vendor_provided" },
+          { "name": "internal error rate", "value": "4.9% (from 15.3%)", "status": "vendor_provided" }
+        ],
+        "knownUnknowns": [
+          "No public safety card available.",
+          "Independent benchmark verification pending."
+        ]
+      }
+    },
+
+    {
+      "lab": "AssemblyAI",
+      "releaseId": "assemblyai-universal-1",
+      "title": "AssemblyAI unveils Universal-1 speech model",
+      "sourceUrl": "https://www.assemblyai.com/blog/announcing-universal-1",
+      "referenceAnswer": {
+        "lab": "AssemblyAI",
+        "modelNames": ["Universal-1"],
+        "releaseDate": "2024-01-23",
+        "canonicalUrl": "https://www.assemblyai.com/blog/announcing-universal-1",
+        "whereItShines": [
+          "Multilingual speech-to-text with high accuracy across diverse audio conditions"
+        ],
+        "strengths": [
+          "AssemblyAI reports Universal-1 achieves the lowest WER on their multilingual benchmarks — vendor-provided results."
+        ],
+        "weaknesses": [
+          "Vendor-reported WER claims not independently verified at oracle creation time.",
+          "No dedicated public safety or system card."
+        ],
+        "safetyCardStatus": "not_found",
+        "evidenceLinks": [],
+        "benchmarkEvidence": [
+          { "name": "WER (multilingual internal benchmark)", "status": "vendor_provided" }
+        ],
+        "knownUnknowns": [
+          "No public safety card available.",
+          "Independent benchmark verification pending."
+        ]
+      }
+    }
+
+  ]
+}

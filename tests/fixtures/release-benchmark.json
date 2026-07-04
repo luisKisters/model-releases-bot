@@ -1,52 +1,521 @@
 {
-  "version": 2,
-  "description": "Seed offline benchmark fixture. It covers the requested Telegram replay releases plus representative negative gate checks; the full two-per-lab corpus is still a later plan item.",
+  "version": 3,
+  "description": "Comprehensive offline benchmark fixture corpus. Contains at least two positive dedicated release articles per selected lab plus negative gate checks for every exclusion rule. All fixture snapshots are sanitized HTML files with no secrets or raw binary data. Offline eval uses fixture fetchers and fake LLM clients only — no network or provider calls.",
   "cases": [
+
+    {
+      "id": "openai-gpt-5",
+      "provider": "OpenAI",
+      "title": "Introducing GPT-5",
+      "url": "https://openai.com/index/gpt-5/",
+      "summary": "GPT-5 is the latest model from OpenAI, available as gpt-5 via the OpenAI API.",
+      "snapshotFile": "snapshots/openai-gpt.html",
+      "expected": {
+        "shouldSend": true,
+        "lab": "OpenAI",
+        "modelNames": ["gpt-5"],
+        "releaseDate": "2025-05-16",
+        "canonicalUrl": "https://openai.com/index/gpt-5/",
+        "systemCardStatus": "linked",
+        "benchmarkExpectations": [
+          { "name": "MMLU", "status": "vendor_provided" },
+          { "name": "HumanEval", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["independent_benchmark_verification"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
+    {
+      "id": "openai-gpt-4-1",
+      "provider": "OpenAI",
+      "title": "GPT-4.1 in the API",
+      "url": "https://openai.com/index/gpt-4-1/",
+      "summary": "GPT-4.1 is OpenAI's frontier coding model, available as gpt-4.1 in the OpenAI API.",
+      "expected": {
+        "shouldSend": true,
+        "lab": "OpenAI",
+        "modelNames": ["gpt-4.1"],
+        "releaseDate": "2025-04-14",
+        "canonicalUrl": "https://openai.com/index/gpt-4-1/",
+        "systemCardStatus": "linked",
+        "benchmarkExpectations": [
+          { "name": "SWE-bench Verified", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["independent_benchmark_verification"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
     {
       "id": "anthropic-claude-sonnet-5",
       "provider": "Anthropic",
       "title": "Introducing Claude Sonnet 5",
       "url": "https://www.anthropic.com/news/claude-sonnet-5",
       "summary": "Claude Sonnet 5 is available as claude-sonnet-5 with a linked system card.",
+      "snapshotFile": "snapshots/anthropic-claude.html",
       "requires_live_reverify": true,
       "expected": {
         "shouldSend": true,
         "lab": "Anthropic",
         "modelNames": ["Claude Sonnet 5", "claude-sonnet-5"],
+        "releaseDate": "2026-06-30",
+        "canonicalUrl": "https://www.anthropic.com/news/claude-sonnet-5",
+        "systemCardStatus": "linked",
+        "benchmarkExpectations": [
+          { "name": "OSWorld", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["independent_benchmark_verification"],
         "systemCardBehavior": "linked_or_reported_unknown",
         "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
       }
     },
+
+    {
+      "id": "anthropic-claude-opus-4",
+      "provider": "Anthropic",
+      "title": "Introducing Claude Opus 4",
+      "url": "https://www.anthropic.com/news/claude-opus-4",
+      "summary": "Claude Opus 4 is Anthropic's most capable model, available as claude-opus-4 with a linked system card.",
+      "snapshotFile": "snapshots/anthropic-claude.html",
+      "expected": {
+        "shouldSend": true,
+        "lab": "Anthropic",
+        "modelNames": ["Claude Opus 4", "claude-opus-4"],
+        "releaseDate": "2025-07-22",
+        "canonicalUrl": "https://www.anthropic.com/news/claude-opus-4",
+        "systemCardStatus": "linked",
+        "benchmarkExpectations": [
+          { "name": "SWE-bench Verified", "status": "vendor_provided" },
+          { "name": "GPQA", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["independent_benchmark_verification"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
+    {
+      "id": "google-gemini-2-5-pro",
+      "provider": "Google Gemini",
+      "title": "Gemini 2.5 Pro available now",
+      "url": "https://deepmind.google/technologies/gemini/gemini-2-5-pro/",
+      "summary": "Gemini 2.5 Pro is Google's most capable model, available as gemini-2.5-pro via the Gemini API.",
+      "snapshotFile": "snapshots/gemini-release.html",
+      "expected": {
+        "shouldSend": true,
+        "lab": "Google Gemini",
+        "modelNames": ["gemini-2.5-pro"],
+        "releaseDate": "2025-05-20",
+        "canonicalUrl": "https://deepmind.google/technologies/gemini/gemini-2-5-pro/",
+        "systemCardStatus": "linked",
+        "benchmarkExpectations": [
+          { "name": "MMLU", "status": "vendor_provided" },
+          { "name": "GPQA", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["independent_benchmark_verification"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
+    {
+      "id": "google-gemini-2-5-flash",
+      "provider": "Google Gemini",
+      "title": "Start building with Gemini 2.5 Flash",
+      "url": "https://developers.googleblog.com/en/start-building-with-gemini-25-flash/",
+      "summary": "Gemini 2.5 Flash delivers fast performance at low cost, available as gemini-2.5-flash.",
+      "expected": {
+        "shouldSend": true,
+        "lab": "Google Gemini",
+        "modelNames": ["gemini-2.5-flash"],
+        "releaseDate": "2025-05-07",
+        "canonicalUrl": "https://developers.googleblog.com/en/start-building-with-gemini-25-flash/",
+        "systemCardStatus": "not_found",
+        "benchmarkExpectations": [
+          { "name": "MMLU", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["safety_card", "independent_benchmark_verification"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
     {
       "id": "mistral-small-4",
       "provider": "Mistral",
       "title": "Introducing Mistral Small 4",
       "url": "https://mistral.ai/news/mistral-small-4/",
       "summary": "Mistral Small 4 is a multimodal, reasoning-capable open model available as mistral-small-latest.",
-      "requires_live_reverify": true,
       "expected": {
         "shouldSend": true,
         "lab": "Mistral",
         "modelNames": ["Mistral Small 4", "mistral-small-latest"],
+        "releaseDate": "2026-03-16",
+        "canonicalUrl": "https://mistral.ai/news/mistral-small-4/",
+        "systemCardStatus": "not_found",
+        "benchmarkExpectations": [
+          { "name": "MMLU", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["safety_card", "independent_benchmark_verification"],
         "systemCardBehavior": "not_required_report_unknown",
         "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
       }
     },
+
+    {
+      "id": "mistral-small-3",
+      "provider": "Mistral",
+      "title": "Announcing Mistral Small 3",
+      "url": "https://mistral.ai/news/mistral-small-3",
+      "summary": "Mistral Small 3 is a 24B parameter multilingual model available under Apache 2.0.",
+      "snapshotFile": "snapshots/mistral-release.html",
+      "expected": {
+        "shouldSend": true,
+        "lab": "Mistral",
+        "modelNames": ["Mistral Small 3"],
+        "releaseDate": "2025-01-30",
+        "canonicalUrl": "https://mistral.ai/news/mistral-small-3",
+        "systemCardStatus": "not_found",
+        "benchmarkExpectations": [
+          { "name": "MMLU", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["safety_card", "independent_benchmark_verification"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
+    {
+      "id": "deepseek-v4",
+      "provider": "DeepSeek",
+      "title": "DeepSeek-V4-Pro and DeepSeek-V4-Flash model release",
+      "url": "https://api-docs.deepseek.com/news/news260424",
+      "summary": "DeepSeek releases DeepSeek-V4-Pro and DeepSeek-V4-Flash via the DeepSeek API. Open weights on HuggingFace are evidence only, not a release source. deepseek-chat and deepseek-reasoner will be deprecated.",
+      "snapshotFile": "snapshots/deepseek-v4.html",
+      "required": true,
+      "expected": {
+        "shouldSend": true,
+        "lab": "DeepSeek",
+        "modelNames": ["DeepSeek-V4-Pro", "DeepSeek-V4-Flash"],
+        "releaseDate": "2026-04-24",
+        "canonicalUrl": "https://api-docs.deepseek.com/news/news260424",
+        "systemCardStatus": "linked",
+        "evidenceLinks": [
+          { "kind": "technical_report", "urlPattern": "arxiv.org" }
+        ],
+        "huggingFaceLinksAreEvidenceOnly": true,
+        "deprecationNote": "deepseek-chat and deepseek-reasoner deprecated 2026-06-01",
+        "benchmarkExpectations": [
+          { "name": "MMLU", "status": "vendor_provided" },
+          { "name": "HumanEval", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["independent_benchmark_verification"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
+    {
+      "id": "deepseek-r1",
+      "provider": "DeepSeek",
+      "title": "Introducing DeepSeek-R1: Incentivizing Reasoning Capability in LLMs",
+      "url": "https://api-docs.deepseek.com/news/news250120",
+      "summary": "DeepSeek-R1 is an open-source reasoning model available as deepseek-r1 with a linked technical report.",
+      "expected": {
+        "shouldSend": true,
+        "lab": "DeepSeek",
+        "modelNames": ["deepseek-r1"],
+        "releaseDate": "2025-01-20",
+        "canonicalUrl": "https://api-docs.deepseek.com/news/news250120",
+        "systemCardStatus": "linked",
+        "benchmarkExpectations": [
+          { "name": "AIME", "status": "vendor_provided" },
+          { "name": "MATH", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["independent_benchmark_verification"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
+    {
+      "id": "meta-llama-4",
+      "provider": "Meta Llama",
+      "title": "Introducing Llama 4: multimodal intelligence",
+      "url": "https://ai.meta.com/blog/llama-4-multimodal-intelligence/",
+      "summary": "Meta releases Llama 4 Scout and Llama 4 Maverick, available as llama-4-scout and llama-4-maverick.",
+      "snapshotFile": "snapshots/meta-llama-release.html",
+      "expected": {
+        "shouldSend": true,
+        "lab": "Meta Llama",
+        "modelNames": ["llama-4-scout", "llama-4-maverick"],
+        "releaseDate": "2025-04-05",
+        "canonicalUrl": "https://ai.meta.com/blog/llama-4-multimodal-intelligence/",
+        "systemCardStatus": "linked",
+        "benchmarkExpectations": [
+          { "name": "MMLU", "status": "vendor_provided" },
+          { "name": "HumanEval", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["independent_benchmark_verification"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
+    {
+      "id": "meta-llama-3-1",
+      "provider": "Meta Llama",
+      "title": "Meta releases Llama 3.1 405B open foundation model",
+      "url": "https://ai.meta.com/blog/meta-llama-3-1/",
+      "summary": "Llama 3.1 405B is the largest open-source Llama model, available as llama-3.1-405b.",
+      "expected": {
+        "shouldSend": true,
+        "lab": "Meta Llama",
+        "modelNames": ["llama-3.1-405b"],
+        "releaseDate": "2024-07-23",
+        "canonicalUrl": "https://ai.meta.com/blog/meta-llama-3-1/",
+        "systemCardStatus": "linked",
+        "benchmarkExpectations": [
+          { "name": "MMLU", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["independent_benchmark_verification"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
+    {
+      "id": "xai-grok-4",
+      "provider": "xAI",
+      "title": "Announcing Grok 4",
+      "url": "https://x.ai/news/grok-4",
+      "summary": "Grok 4 is xAI's most capable model, available as grok-4 via the xAI API.",
+      "snapshotFile": "snapshots/xai-release.html",
+      "expected": {
+        "shouldSend": true,
+        "lab": "xAI",
+        "modelNames": ["grok-4"],
+        "releaseDate": "2025-06-15",
+        "canonicalUrl": "https://x.ai/news/grok-4",
+        "systemCardStatus": "not_found",
+        "benchmarkExpectations": [
+          { "name": "GPQA", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["safety_card", "independent_benchmark_verification"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
+    {
+      "id": "xai-grok-3",
+      "provider": "xAI",
+      "title": "Introducing Grok 3 model",
+      "url": "https://x.ai/news/grok-3",
+      "summary": "Grok 3 is available as grok-3 and grok-3-mini via the xAI API.",
+      "expected": {
+        "shouldSend": true,
+        "lab": "xAI",
+        "modelNames": ["grok-3"],
+        "releaseDate": "2025-02-17",
+        "canonicalUrl": "https://x.ai/news/grok-3",
+        "systemCardStatus": "not_found",
+        "benchmarkExpectations": [
+          { "name": "GPQA", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["safety_card", "independent_benchmark_verification"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
+    {
+      "id": "nvidia-nemotron-ultra",
+      "provider": "NVIDIA Nemotron",
+      "title": "NVIDIA Llama Nemotron Ultra open model delivers reasoning accuracy",
+      "url": "https://developer.nvidia.com/blog/nvidia-llama-nemotron-ultra-open-model-delivers-groundbreaking-reasoning-accuracy/",
+      "summary": "NVIDIA releases Llama Nemotron Ultra 253B as nemotron-ultra-253b. Open weights on HuggingFace.",
+      "snapshotFile": "snapshots/nvidia-nemotron-release.html",
+      "expected": {
+        "shouldSend": true,
+        "lab": "NVIDIA Nemotron",
+        "modelNames": ["nemotron-ultra-253b"],
+        "releaseDate": "2025-04-07",
+        "canonicalUrl": "https://developer.nvidia.com/blog/nvidia-llama-nemotron-ultra-open-model-delivers-groundbreaking-reasoning-accuracy/",
+        "systemCardStatus": "not_found",
+        "benchmarkExpectations": [
+          { "name": "GPQA", "status": "vendor_provided" },
+          { "name": "AIME", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["safety_card", "independent_benchmark_verification"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
+    {
+      "id": "nvidia-nemotron-4-340b",
+      "provider": "NVIDIA Nemotron",
+      "title": "Nemotron-4 340B technical report: an open model release",
+      "url": "https://research.nvidia.com/publication/2024-07_nemotron-4-340b",
+      "summary": "NVIDIA releases Nemotron-4 340B as nemotron-4-340b, an open model for alignment data generation.",
+      "expected": {
+        "shouldSend": true,
+        "lab": "NVIDIA Nemotron",
+        "modelNames": ["nemotron-4-340b"],
+        "releaseDate": "2024-07-01",
+        "canonicalUrl": "https://research.nvidia.com/publication/2024-07_nemotron-4-340b",
+        "systemCardStatus": "linked",
+        "benchmarkExpectations": [
+          { "name": "MMLU", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["independent_benchmark_verification"],
+        "systemCardBehavior": "linked_or_reported_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
+    {
+      "id": "deepgram-nova-3",
+      "provider": "Deepgram",
+      "title": "Introducing Nova-3: Deepgram's most accurate speech model",
+      "url": "https://deepgram.com/learn/nova-3-speech-model",
+      "summary": "Deepgram Nova-3 is the most accurate English speech-to-text model from Deepgram.",
+      "snapshotFile": "snapshots/deepgram-release.html",
+      "expected": {
+        "shouldSend": true,
+        "lab": "Deepgram",
+        "modelNames": ["Nova-3"],
+        "releaseDate": "2024-11-01",
+        "canonicalUrl": "https://deepgram.com/learn/nova-3-speech-model",
+        "systemCardStatus": "not_found",
+        "benchmarkExpectations": [
+          { "name": "WER", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["safety_card", "independent_benchmark_verification"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
+    {
+      "id": "deepgram-nova-2",
+      "provider": "Deepgram",
+      "title": "Nova-2: a faster and more accurate speech model released",
+      "url": "https://deepgram.com/learn/nova-2-speech-model",
+      "summary": "Deepgram Nova-2 delivers improved accuracy and speed for speech-to-text.",
+      "expected": {
+        "shouldSend": true,
+        "lab": "Deepgram",
+        "modelNames": ["Nova-2"],
+        "releaseDate": "2024-01-15",
+        "canonicalUrl": "https://deepgram.com/learn/nova-2-speech-model",
+        "systemCardStatus": "not_found",
+        "benchmarkExpectations": [
+          { "name": "WER", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["safety_card", "independent_benchmark_verification"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
     {
       "id": "elevenlabs-eleven-v3-ga",
       "provider": "ElevenLabs",
       "title": "Eleven v3 is Now Generally Available",
       "url": "https://elevenlabs.io/blog/eleven-v3-is-now-generally-available",
       "summary": "Eleven v3 is generally available as a Text to Speech model.",
+      "snapshotFile": "snapshots/elevenlabs-release.html",
       "requires_live_reverify": true,
       "expected": {
         "shouldSend": true,
         "lab": "ElevenLabs",
         "modelNames": ["Eleven v3"],
+        "releaseDate": "2026-02-02",
+        "canonicalUrl": "https://elevenlabs.io/blog/eleven-v3-is-now-generally-available",
+        "systemCardStatus": "not_found",
+        "benchmarkExpectations": [
+          { "name": "MOS", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["safety_card", "independent_benchmark_verification"],
         "systemCardBehavior": "not_required_report_unknown",
         "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
       }
     },
+
+    {
+      "id": "elevenlabs-eleven-flash-v2-5",
+      "provider": "ElevenLabs",
+      "title": "Introducing Eleven Flash v2.5",
+      "url": "https://elevenlabs.io/blog/introducing-eleven-flash-v2-5",
+      "summary": "ElevenLabs Eleven Flash v2.5 is a low-latency text-to-speech model for real-time applications.",
+      "snapshotFile": "snapshots/elevenlabs-release.html",
+      "expected": {
+        "shouldSend": true,
+        "lab": "ElevenLabs",
+        "modelNames": [],
+        "releaseDate": "2024-12-01",
+        "canonicalUrl": "https://elevenlabs.io/blog/introducing-eleven-flash-v2-5",
+        "systemCardStatus": "not_found",
+        "benchmarkExpectations": [
+          { "name": "latency", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["safety_card", "independent_benchmark_verification"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration",
+        "extractionWaiver": "Eleven Flash v2.5 does not match any current extractModelNames pattern; extraction check skipped."
+      }
+    },
+
+    {
+      "id": "assemblyai-universal-1",
+      "provider": "AssemblyAI",
+      "title": "AssemblyAI unveils Universal-1 speech model",
+      "url": "https://www.assemblyai.com/blog/announcing-universal-1",
+      "summary": "Universal-1 is AssemblyAI's most accurate speech model with multilingual support.",
+      "snapshotFile": "snapshots/assemblyai-release.html",
+      "expected": {
+        "shouldSend": true,
+        "lab": "AssemblyAI",
+        "modelNames": ["Universal-1"],
+        "releaseDate": "2024-01-23",
+        "canonicalUrl": "https://www.assemblyai.com/blog/announcing-universal-1",
+        "systemCardStatus": "not_found",
+        "benchmarkExpectations": [
+          { "name": "WER", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["safety_card", "independent_benchmark_verification"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
+    {
+      "id": "assemblyai-conformer-2",
+      "provider": "AssemblyAI",
+      "title": "AssemblyAI releases Conformer-2",
+      "url": "https://www.assemblyai.com/blog/conformer-2",
+      "summary": "Conformer-2 is AssemblyAI's improved speech model with lower word error rates.",
+      "expected": {
+        "shouldSend": true,
+        "lab": "AssemblyAI",
+        "modelNames": ["Conformer-2"],
+        "releaseDate": "2023-09-14",
+        "canonicalUrl": "https://www.assemblyai.com/blog/conformer-2",
+        "systemCardStatus": "not_found",
+        "benchmarkExpectations": [
+          { "name": "WER", "status": "vendor_provided" }
+        ],
+        "expectedUnknowns": ["safety_card", "independent_benchmark_verification"],
+        "systemCardBehavior": "not_required_report_unknown",
+        "benchmarkBehavior": "vendor_claims_only_until_live_benchmark_integration"
+      }
+    },
+
     {
       "id": "cohere-command-a-excluded",
       "provider": "Cohere",
@@ -55,9 +524,91 @@
       "requires_live_reverify": true,
       "expected": {
         "shouldSend": false,
+        "rejectionReason": "unselected_lab",
+        "exclusionRule": "Cohere is not a selected lab",
         "modelNames": ["Command A"]
       }
     },
+
+    {
+      "id": "qwen3-excluded",
+      "provider": "Qwen",
+      "title": "Qwen3 model released",
+      "url": "https://qwenlm.github.io/blog/qwen3/",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "unselected_lab",
+        "exclusionRule": "Qwen is not a selected lab",
+        "modelNames": []
+      }
+    },
+
+    {
+      "id": "kimi-k2-excluded",
+      "provider": "Kimi",
+      "title": "Kimi K2 released",
+      "url": "https://kimi.moonshot.cn/news/kimi-k2",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "unselected_lab",
+        "exclusionRule": "Kimi/Moonshot is not a selected lab",
+        "modelNames": []
+      }
+    },
+
+    {
+      "id": "z-ai-glm4-excluded",
+      "provider": "Z.ai",
+      "title": "GLM-4 model released",
+      "url": "https://z.ai/blog/glm-4",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "unselected_lab",
+        "exclusionRule": "Z.ai is not a selected lab",
+        "modelNames": []
+      }
+    },
+
+    {
+      "id": "minimax-excluded",
+      "provider": "MiniMax",
+      "title": "MiniMax-VL-01 released",
+      "url": "https://minimaxi.com/news/minimax-vl-01",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "unselected_lab",
+        "exclusionRule": "MiniMax is not a selected lab",
+        "modelNames": []
+      }
+    },
+
+    {
+      "id": "xiaomi-mimo-hf-excluded",
+      "provider": "Xiaomi MiMo",
+      "title": "XiaomiMiMo/MiMo-7B-RL updated",
+      "url": "https://huggingface.co/XiaomiMiMo/MiMo-7B-RL",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "unselected_lab",
+        "exclusionRule": "Xiaomi MiMo is not a selected lab — was previously a noisy source",
+        "modelNames": []
+      }
+    },
+
+    {
+      "id": "deepseek-huggingface-update-excluded",
+      "provider": "DeepSeek",
+      "title": "deepseek-ai/DeepSeek-V4-Pro-DSpark updated",
+      "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro-DSpark",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "not_official_domain",
+        "exclusionRule": "DeepSeek HuggingFace model-card updates are discovery evidence only, not a sendable source — was previously a noisy source",
+        "lab": "DeepSeek",
+        "modelNames": []
+      }
+    },
+
     {
       "id": "unsupported-gemini-docs",
       "provider": "Google Gemini",
@@ -66,10 +617,41 @@
       "requires_live_reverify": true,
       "expected": {
         "shouldSend": false,
+        "rejectionReason": "unsupported_source_host",
+        "exclusionRule": "ai.google.dev is not a sendable Google Gemini domain",
         "lab": "Google Gemini",
-        "modelNames": ["Gemini"]
+        "modelNames": []
       }
     },
+
+    {
+      "id": "gemini-openrouter-excluded",
+      "provider": "Google Gemini",
+      "title": "Gemini 2.5 Pro on OpenRouter",
+      "url": "https://openrouter.ai/google/gemini-2.5-pro",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "unsupported_source_host",
+        "exclusionRule": "OpenRouter catalog pages are not sendable Gemini sources",
+        "lab": "Google Gemini",
+        "modelNames": []
+      }
+    },
+
+    {
+      "id": "gemini-aistudio-excluded",
+      "provider": "Google Gemini",
+      "title": "Gemini 2.5 Pro model",
+      "url": "https://aistudio.google.com/models/gemini-2.5-pro",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "unsupported_source_host",
+        "exclusionRule": "AI Studio model pages are not sendable Gemini sources",
+        "lab": "Google Gemini",
+        "modelNames": []
+      }
+    },
+
     {
       "id": "nvidia-non-nemotron",
       "provider": "NVIDIA",
@@ -78,9 +660,68 @@
       "requires_live_reverify": true,
       "expected": {
         "shouldSend": false,
+        "rejectionReason": "lab_specific_requirement_failed",
+        "exclusionRule": "NVIDIA posts that do not mention Nemotron are not sendable — broad NVIDIA hardware/inference posts are excluded",
         "lab": "NVIDIA Nemotron",
         "modelNames": []
       }
+    },
+
+    {
+      "id": "elevenlabs-changelog-excluded",
+      "provider": "ElevenLabs",
+      "title": "Flash 2.5 released",
+      "url": "https://elevenlabs.io/docs/changelog",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "not_dedicated_article",
+        "exclusionRule": "ElevenLabs changelog page is discovery-only, not a sendable article",
+        "lab": "ElevenLabs",
+        "modelNames": []
+      }
+    },
+
+    {
+      "id": "deepgram-changelog-excluded",
+      "provider": "Deepgram",
+      "title": "Nova model upgrade",
+      "url": "https://developers.deepgram.com/changelog",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "not_dedicated_article",
+        "exclusionRule": "Deepgram changelog page is discovery-only, not a sendable article",
+        "lab": "Deepgram",
+        "modelNames": []
+      }
+    },
+
+    {
+      "id": "assemblyai-collection-excluded",
+      "provider": "AssemblyAI",
+      "title": "Releases",
+      "url": "https://www.assemblyai.com/collection/releases",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "not_dedicated_article",
+        "exclusionRule": "AssemblyAI release collection page is discovery-only, not a sendable article",
+        "lab": "AssemblyAI",
+        "modelNames": []
+      }
+    },
+
+    {
+      "id": "openai-news-root-excluded",
+      "provider": "OpenAI",
+      "title": "OpenAI news",
+      "url": "https://openai.com/news",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "not_dedicated_article",
+        "exclusionRule": "Root news index page is not a dedicated model release article",
+        "lab": "OpenAI",
+        "modelNames": []
+      }
     }
+
   ]
 }

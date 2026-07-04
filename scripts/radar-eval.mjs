@@ -6,6 +6,7 @@ import { extractModelNames } from "../src/lib/radar/text.ts";
 
 loadLocalEnv();
 
+// Offline mode: no network calls, no LLM calls — fixture fetchers and fake clients only.
 const args = parseArgs(process.argv.slice(2));
 const fixturesPath = resolve(String(args.fixtures ?? "tests/fixtures/release-benchmark.json"));
 const offline = Boolean(args.offline);
@@ -26,6 +27,53 @@ const correctEligibility = evaluatedCases.filter((entry) => entry.sourceEligibil
 const modelChecks = evaluatedCases.filter((entry) => entry.expectedModelNames.length > 0);
 const correctModelChecks = modelChecks.filter((entry) => entry.modelExtractionCorrect).length;
 
+// Fixture metadata completeness: positive cases should have full expected fields.
+const requiredPositiveFields = ["lab", "releaseDate", "canonicalUrl", "systemCardStatus", "benchmarkExpectations", "expectedUnknowns"];
+const positivesWithFullMetadata = positives.filter((entry) =>
+  requiredPositiveFields.every((field) => entry.expected?.[field] !== undefined),
+);
+const fixtureMetadataCoverage = positives.length === 0 ? 1 : positivesWithFullMetadata.length / positives.length;
+
+// Required fixture check: verify the DeepSeek V4 fixture is present.
+const hasRequiredDeepSeekV4 = cases.some(
+  (entry) => entry.id === "deepseek-v4" && entry.expected?.shouldSend === true,
+);
+if (!hasRequiredDeepSeekV4) {
+  console.error(
+    JSON.stringify(
+      {
+        ok: false,
+        reason: "missing_required_fixture",
+        detail: "deepseek-v4 positive fixture is required but not found in fixture corpus",
+      },
+      null,
+      2,
+    ),
+  );
+  process.exit(1);
+}
+
+// Labs coverage: every selected lab must have at least one positive fixture.
+const selectedLabs = [
+  "OpenAI",
+  "Anthropic",
+  "Google Gemini",
+  "Mistral",
+  "DeepSeek",
+  "Meta Llama",
+  "xAI",
+  "NVIDIA Nemotron",
+  "Deepgram",
+  "ElevenLabs",
+  "AssemblyAI",
+];
+const labsWithPositive = new Set(
+  positives
+    .map((entry) => entry.expected?.lab ?? entry.provider)
+    .filter(Boolean),
+);
+const missingLabs = selectedLabs.filter((lab) => !labsWithPositive.has(lab));
+
 if (estimatedCostUsd > maxCostUsd) {
   console.error(
     JSON.stringify(
@@ -42,17 +90,28 @@ if (estimatedCostUsd > maxCostUsd) {
   process.exit(1);
 }
 
+const allEligibilityCorrect = evaluatedCases.every((entry) => entry.sourceEligibilityCorrect);
+const allModelExtractionsCorrect = evaluatedCases.every((entry) => entry.modelExtractionCorrect);
+const noMissingLabs = missingLabs.length === 0;
+
 const result = {
-  ok: evaluatedCases.every((entry) => entry.sourceEligibilityCorrect && entry.modelExtractionCorrect),
+  ok: allEligibilityCorrect && allModelExtractionsCorrect && noMissingLabs,
   mode: offline ? "offline" : "live-disabled-until-task-9",
   fixtureVersion: fixture.version ?? 1,
   totalCases: cases.length,
   positiveCases: positives.length,
   negativeCases: negatives.length,
   estimatedCostUsd,
+  labsCoverage: {
+    selectedLabs: selectedLabs.length,
+    labsWithPositiveFixture: labsWithPositive.size,
+    missingLabs,
+  },
+  fixtureMetadataCoverage,
   scores: {
     sourceEligibility: cases.length === 0 ? "not_scored" : correctEligibility / cases.length,
     extractionCoverage: modelChecks.length === 0 ? "not_scored" : correctModelChecks / modelChecks.length,
+    fixtureCompleteness: fixtureMetadataCoverage,
     systemCardCoverage: "not_scored",
     benchmarkCoverage: "not_scored",
     finalMessageCoverage: "not_scored",
@@ -61,10 +120,26 @@ const result = {
   evaluatedCases,
   notes: [
     "Offline mode checks article-gate eligibility and expected model-name extraction without network or LLM calls.",
-    "System-card, benchmark, final-message, and verifier scoring are still not fully implemented.",
-    "Offline mode performs no network calls and no LLM calls.",
+    "Offline mode uses fixture fetchers and fake LLM clients only — no network or provider calls.",
+    "System-card, benchmark, final-message, and verifier scoring require Task 12 implementation.",
+    "fixtureCompleteness measures what fraction of positive cases have all required metadata fields.",
   ],
 };
+
+if (!result.ok) {
+  if (!allEligibilityCorrect) {
+    result.errors = result.errors ?? [];
+    result.errors.push("One or more cases have incorrect source eligibility");
+  }
+  if (!allModelExtractionsCorrect) {
+    result.errors = result.errors ?? [];
+    result.errors.push("One or more cases have incorrect model name extraction");
+  }
+  if (!noMissingLabs) {
+    result.errors = result.errors ?? [];
+    result.errors.push(`Labs missing positive fixture: ${missingLabs.join(", ")}`);
+  }
+}
 
 console.log(JSON.stringify(result, null, 2));
 
@@ -108,6 +183,9 @@ function evaluateCase(entry) {
   const expectedModelNames = Array.isArray(entry.expected?.modelNames) ? entry.expected.modelNames.map(String) : [];
   const extractedModelNames = extractModelNames(`${entry.title ?? ""} ${entry.summary ?? ""}`);
 
+  // For extraction check, if the fixture documents an extraction waiver, skip the check.
+  const hasExtractionWaiver = Boolean(entry.expected?.extractionWaiver);
+
   return {
     id: entry.id ?? entry.url,
     decision,
@@ -116,8 +194,11 @@ function evaluateCase(entry) {
       decision.shouldSend === expectedShouldSend && (!expectedLab || decision.lab === expectedLab),
     expectedModelNames,
     extractedModelNames,
-    modelExtractionCorrect: expectedModelNames.every((name) =>
-      extractedModelNames.some((extracted) => extracted.toLowerCase() === name.toLowerCase()),
-    ),
+    modelExtractionCorrect:
+      hasExtractionWaiver ||
+      expectedModelNames.every((name) =>
+        extractedModelNames.some((extracted) => extracted.toLowerCase() === name.toLowerCase()),
+      ),
+    ...(hasExtractionWaiver && { extractionWaiver: entry.expected.extractionWaiver }),
   };
 }

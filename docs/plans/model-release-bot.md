@@ -122,14 +122,14 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 5: Fixture Corpus And Offline Oracle
 
-- [ ] Expand `tests/fixtures/release-benchmark.json` so it contains at least two positive dedicated release articles per selected lab where available.
-- [ ] Include DeepSeek V4 Preview Release `https://api-docs.deepseek.com/news/news260424` as a required positive fixture.
-- [ ] For every fixture, include expected lab, model names, release date, canonical article URL, required evidence links, required system/model/safety/technical links, benchmark expectations, expected unknowns, and expected send/reject decision.
-- [ ] Add negative fixtures for every exclusion rule, including the exact noisy examples that previously reached Telegram.
-- [ ] Add an oracle file under `tests/fixtures/` with source-backed reference answers and known weaknesses/unknowns for at least one release per lab.
-- [ ] Fixture snapshots must be sanitized and must not contain secrets, raw API responses with credentials, or raw binary files.
-- [ ] Offline eval must use fixture fetchers and fake LLM clients only. No network calls and no provider calls are allowed in offline mode.
-- [ ] Run validation commands and fix all failures.
+- [x] Expand `tests/fixtures/release-benchmark.json` so it contains at least two positive dedicated release articles per selected lab where available.
+- [x] Include DeepSeek V4 Preview Release `https://api-docs.deepseek.com/news/news260424` as a required positive fixture.
+- [x] For every fixture, include expected lab, model names, release date, canonical article URL, required evidence links, required system/model/safety/technical links, benchmark expectations, expected unknowns, and expected send/reject decision.
+- [x] Add negative fixtures for every exclusion rule, including the exact noisy examples that previously reached Telegram.
+- [x] Add an oracle file under `tests/fixtures/` with source-backed reference answers and known weaknesses/unknowns for at least one release per lab.
+- [x] Fixture snapshots must be sanitized and must not contain secrets, raw API responses with credentials, or raw binary files.
+- [x] Offline eval must use fixture fetchers and fake LLM clients only. No network calls and no provider calls are allowed in offline mode.
+- [x] Run validation commands and fix all failures.
 
 ### Task 6: System Card, Model Card, Safety Card, Technical Report, And PDF Handling
 
