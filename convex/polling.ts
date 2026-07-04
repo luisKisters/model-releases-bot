@@ -109,5 +109,8 @@ function toPollInput(source: {
     parser: source.parser as SourceParser,
     confidence: source.confidence as SignalConfidence,
     signalType: source.signalType as SignalType,
+    // DB rows pre-dating the sourceRole field default to sendable to preserve
+    // existing notify behaviour. New syncs will always store the real role.
+    sourceRole: source.notify ? "sendable" : "discovery",
   };
 }

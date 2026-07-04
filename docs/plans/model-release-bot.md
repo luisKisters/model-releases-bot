@@ -89,14 +89,14 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 2: Source Registry, Discovery, And Stale Source Cleanup
 
-- [ ] Keep `src/lib/radar/sources.ts` limited to the selected labs listed above.
-- [ ] Implement source adapters that normalize every candidate into `lab`, `provider`, `sourceId`, `sourceType`, `sourceUrl`, `candidateUrl`, `canonicalUrl`, `title`, `summary`, `publishedAt`, `updatedAt`, `confidence`, `rawMetadata`, and `discoveredVia`.
-- [ ] Separate `discovery` from `sendable`. Changelogs, feeds, release collections, model cards, docs, catalogs, and benchmark pages can discover candidates but cannot directly send.
-- [ ] Preserve stale Convex source disabling: any enabled DB source not in the current registry must be patched to `enabled: false` and `notify: false`.
-- [ ] Add tests proving old `deepseek-ai` Hugging Face, `XiaomiMiMo` Hugging Face, and Cohere changelog source rows are disabled during source sync.
-- [ ] Add tests proving excluded provider strings do not appear in sendable source configuration.
-- [ ] Add tests for every selected lab source entry, including source type and whether it is discovery-only or sendable-candidate.
-- [ ] Run validation commands and fix all failures.
+- [x] Keep `src/lib/radar/sources.ts` limited to the selected labs listed above.
+- [x] Implement source adapters that normalize every candidate into `lab`, `provider`, `sourceId`, `sourceType`, `sourceUrl`, `candidateUrl`, `canonicalUrl`, `title`, `summary`, `publishedAt`, `updatedAt`, `confidence`, `rawMetadata`, and `discoveredVia`.
+- [x] Separate `discovery` from `sendable`. Changelogs, feeds, release collections, model cards, docs, catalogs, and benchmark pages can discover candidates but cannot directly send.
+- [x] Preserve stale Convex source disabling: any enabled DB source not in the current registry must be patched to `enabled: false` and `notify: false`.
+- [x] Add tests proving old `deepseek-ai` Hugging Face, `XiaomiMiMo` Hugging Face, and Cohere changelog source rows are disabled during source sync.
+- [x] Add tests proving excluded provider strings do not appear in sendable source configuration.
+- [x] Add tests for every selected lab source entry, including source type and whether it is discovery-only or sendable-candidate.
+- [x] Run validation commands and fix all failures.
 
 ### Task 3: Article Gate And Source Eligibility
 

@@ -21,6 +21,15 @@ export type SignalType =
   | "page_change"
   | "source_failure";
 
+/**
+ * "sendable": items from this source can, after passing the article gate,
+ *   trigger a Telegram release notification.
+ * "discovery": items from this source are candidates for further investigation
+ *   only — changelogs, index pages, release collections, model-card feeds,
+ *   docs catalogs, and benchmark pages are all discovery-only.
+ */
+export type SourceRole = "sendable" | "discovery";
+
 export type SourceConfig = {
   sourceId: string;
   provider: string;
@@ -32,7 +41,25 @@ export type SourceConfig = {
   pollEveryMinutes: number;
   enabled: boolean;
   notify: boolean;
+  sourceRole: SourceRole;
   urlIncludes?: string[];
+};
+
+export type DiscoveryCandidate = {
+  lab: string;
+  provider: string;
+  sourceId: string;
+  sourceType: SourceRole;
+  sourceUrl: string;
+  candidateUrl: string | null;
+  canonicalUrl: string | null;
+  title: string;
+  summary: string | null;
+  publishedAt: string | null;
+  updatedAt: string | null;
+  confidence: SignalConfidence;
+  rawMetadata: Record<string, unknown>;
+  discoveredVia: SourceParser;
 };
 
 export type ParsedSignal = {

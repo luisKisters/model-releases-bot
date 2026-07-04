@@ -49,7 +49,7 @@ function signalFromParts(
     fingerprint: stableFingerprint([source.provider, source.sourceId, cleanedTitle, url || source.url]),
     confidence: source.confidence,
     signalType: source.signalType,
-    shouldNotify: source.notify && articleGate.shouldSend,
+    shouldNotify: source.sourceRole === "sendable" && source.notify && articleGate.shouldSend,
   };
 }
 

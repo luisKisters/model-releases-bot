@@ -1,89 +1,93 @@
-import type { SourceConfig } from "./types";
+import type { SourceConfig, SourceRole } from "./types";
 
 export const sourceRegistry: SourceConfig[] = [
-  official("openai-news-rss", "OpenAI", "OpenAI news RSS", "https://openai.com/news/rss.xml", "rssAtom"),
+  source("openai-news-rss", "OpenAI", "OpenAI news RSS", "https://openai.com/news/rss.xml", "rssAtom", "sendable"),
 
-  official("anthropic-news", "Anthropic", "Anthropic news", "https://www.anthropic.com/news", "html", false),
+  source("anthropic-news", "Anthropic", "Anthropic news", "https://www.anthropic.com/news", "html", "discovery"),
 
-  official("deepmind-rss", "Google Gemini", "Google DeepMind blog RSS", "https://deepmind.google/blog/rss.xml", "rssAtom"),
-  official(
+  source("deepmind-rss", "Google Gemini", "Google DeepMind blog RSS", "https://deepmind.google/blog/rss.xml", "rssAtom", "sendable"),
+  source(
     "google-gemini-blog-rss",
     "Google Gemini",
     "Google Gemini product blog RSS",
     "https://blog.google/products-and-platforms/products/gemini/rss/",
     "rssAtom",
+    "sendable",
   ),
-  official(
+  source(
     "google-developers-gemini-feed",
     "Google Gemini",
     "Google Developers Gemini feed",
     "https://developers.googleblog.com/feeds/posts/default/-/Gemini/",
     "rssAtom",
+    "sendable",
   ),
 
-  official("mistral-rss", "Mistral", "Mistral RSS", "https://mistral.ai/rss.xml", "rssAtom"),
+  source("mistral-rss", "Mistral", "Mistral RSS", "https://mistral.ai/rss.xml", "rssAtom", "sendable"),
 
-  official("deepseek-news", "DeepSeek", "DeepSeek official news", "https://api-docs.deepseek.com/news/", "html", false),
+  source("deepseek-news", "DeepSeek", "DeepSeek official news", "https://api-docs.deepseek.com/news/", "html", "discovery"),
 
-  official("meta-ai-blog", "Meta Llama", "AI at Meta blog", "https://ai.meta.com/blog/", "html", false),
+  source("meta-ai-blog", "Meta Llama", "AI at Meta blog", "https://ai.meta.com/blog/", "html", "discovery"),
 
-  official("xai-news", "xAI", "xAI news", "https://x.ai/news", "html", false),
+  source("xai-news", "xAI", "xAI news", "https://x.ai/news", "html", "discovery"),
 
-  official(
+  source(
     "nvidia-nemotron-feed",
     "NVIDIA Nemotron",
     "NVIDIA Nemotron research feed",
     "https://research.nvidia.com/labs/nemotron/feed.xml",
     "rssAtom",
+    "sendable",
   ),
-  official(
+  source(
     "nvidia-nemotron-developer-blog",
     "NVIDIA Nemotron",
     "NVIDIA Nemotron developer blog tag",
     "https://developer.nvidia.com/blog/tag/nemotron/",
     "html",
-    false,
+    "discovery",
   ),
 
-  official(
+  source(
     "deepgram-changelog-rss",
     "Deepgram",
     "Deepgram changelog RSS",
     "https://developers.deepgram.com/changelog.rss",
     "rssAtom",
-    false,
+    "discovery",
   ),
-  official("deepgram-blog", "Deepgram", "Deepgram blog", "https://deepgram.com/learn", "html", false),
+  source("deepgram-blog", "Deepgram", "Deepgram blog", "https://deepgram.com/learn", "html", "discovery"),
 
-  official(
+  source(
     "elevenlabs-changelog-rss",
     "ElevenLabs",
     "ElevenLabs changelog RSS",
     "https://elevenlabs.io/docs/changelog.rss",
     "rssAtom",
-    false,
+    "discovery",
   ),
-  official("elevenlabs-blog", "ElevenLabs", "ElevenLabs blog", "https://elevenlabs.io/blog", "html", false),
+  source("elevenlabs-blog", "ElevenLabs", "ElevenLabs blog", "https://elevenlabs.io/blog", "html", "discovery"),
 
-  official(
+  source(
     "assemblyai-releases",
     "AssemblyAI",
     "AssemblyAI release collection",
     "https://www.assemblyai.com/collection/releases",
     "html",
-    false,
+    "discovery",
   ),
-  official("assemblyai-blog", "AssemblyAI", "AssemblyAI blog", "https://www.assemblyai.com/blog", "html", false),
+  source("assemblyai-blog", "AssemblyAI", "AssemblyAI blog", "https://www.assemblyai.com/blog", "html", "discovery"),
 ];
 
-function official(
+function source(
   sourceId: string,
   provider: string,
   label: string,
   url: string,
   parser: SourceConfig["parser"],
-  notify = true,
+  sourceRole: SourceRole,
 ): SourceConfig {
+  const notify = sourceRole === "sendable";
   return {
     sourceId,
     provider,
@@ -95,5 +99,6 @@ function official(
     pollEveryMinutes: parser === "rssAtom" ? 5 : 15,
     enabled: true,
     notify,
+    sourceRole,
   };
 }

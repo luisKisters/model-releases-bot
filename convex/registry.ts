@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { normalizeModelName } from "../src/lib/radar/text";
+import { findStaleSourcesToDisable } from "../src/lib/radar/staleSourceSync";
 
 const STALE_SOURCE_DISABLE_BATCH_SIZE = 500;
 
@@ -72,8 +73,10 @@ async function disableStaleSources(
     .withIndex("by_next_poll", (q) => q.eq("enabled", true))
     .take(STALE_SOURCE_DISABLE_BATCH_SIZE);
 
+  const staleIds = new Set(findStaleSourcesToDisable(configuredSourceIds, enabledSources));
+
   for (const source of enabledSources) {
-    if (configuredSourceIds.has(source.sourceId)) {
+    if (!staleIds.has(source.sourceId)) {
       continue;
     }
 
