@@ -77,13 +77,13 @@ The last two commands must reject the input as non-sendable. They must not retur
 
 ### Task 5: Claim Verification Red Team
 
-- [ ] Inject unsupported benchmark claims into fake Kimi output and prove verifier blocks send.
-- [ ] Inject invented safety/system-card claims and prove verifier blocks send.
-- [ ] Inject wrong source URLs and prove verifier blocks send.
-- [ ] Inject stale release dates and prove verifier blocks send.
-- [ ] Inject missing weaknesses/unknowns and prove verifier blocks send.
-- [ ] Verify verifier findings identify the unsupported claim and missing evidence source.
-- [ ] Run validation commands and fix all failures.
+- [x] Inject unsupported benchmark claims into fake Kimi output and prove verifier blocks send.
+- [x] Inject invented safety/system-card claims and prove verifier blocks send.
+- [x] Inject wrong source URLs and prove verifier blocks send.
+- [x] Inject stale release dates and prove verifier blocks send.
+- [x] Inject missing weaknesses/unknowns and prove verifier blocks send.
+- [x] Verify verifier findings identify the unsupported claim and missing evidence source.
+- [x] Run validation commands and fix all failures.
 
 ### Task 6: Cost And Secret Red Team
 
