@@ -1,5 +1,6 @@
 import type { FetchImpl } from "./fetching";
 import type { EvidenceChunk } from "./systemCards";
+import { filterModelNamesForLab } from "./text";
 
 export type BenchmarkStatus =
   | "supported"
@@ -479,6 +480,7 @@ export async function aggregateBenchmarkEvidence(
   options: BenchmarkOptions = {},
 ): Promise<BenchmarkEvidence> {
   const modality = getLabModalities(lab);
+  const scopedModelNames = filterModelNamesForLab(lab, modelNames);
 
   // Extract vendor claims from article text
   const articleClaims = extractBenchmarkClaims(articleText, "vendor_article", articleUrl);
@@ -490,7 +492,7 @@ export async function aggregateBenchmarkEvidence(
   const allVendorClaims = deduplicateClaims([...articleClaims, ...chunkClaims]);
 
   // Query Artificial Analysis
-  const aaResult = await queryArtificialAnalysis(modelNames, modality, options);
+  const aaResult = await queryArtificialAnalysis(scopedModelNames, modality, options);
 
   // Add AA rows as claims
   const aaClaims: BenchmarkClaim[] =
@@ -510,7 +512,7 @@ export async function aggregateBenchmarkEvidence(
 
   return {
     lab,
-    modelNames,
+    modelNames: scopedModelNames,
     modality,
     claims: [...resolvedVendorClaims, ...aaClaims],
     artificialAnalysis: aaResult,

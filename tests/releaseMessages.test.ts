@@ -6,7 +6,7 @@ import {
   formatVerifiedReleaseNote,
   selectReleaseReplayCases,
 } from "../src/lib/radar/releaseMessages";
-import { extractModelNames } from "../src/lib/radar/text";
+import { extractModelNames, filterModelNamesForLab } from "../src/lib/radar/text";
 
 describe("release replay messages", () => {
   it("includes the requested Sonnet 5 replay plus two selected-lab releases", () => {
@@ -63,5 +63,20 @@ describe("release replay messages", () => {
     expect(extractModelNames("Introducing Mistral Small 4 and mistral-small-latest")).toContain("Mistral Small 4");
     expect(extractModelNames("Eleven v3 is generally available")).toContain("Eleven v3");
     expect(extractModelNames("Introducing Command A")).toContain("Command A");
+  });
+
+  it("filters extracted names to the release lab and removes URL/artifact names", () => {
+    const extracted = extractModelNames(
+      [
+        "DeepSeek-V4, DeepSeek-V4-Pro and DeepSeek-V4-Flash are released.",
+        "The article compares against Gemini-3.1-Pro and Claude.",
+        "Links mention deepseek-ai, deepseek.com, DeepSeek_V4.pdf, deepseek-chat, and deepseek-reasoner.",
+      ].join(" "),
+    );
+
+    expect(filterModelNamesForLab("DeepSeek", extracted)).toEqual([
+      "DeepSeek-V4-Pro",
+      "DeepSeek-V4-Flash",
+    ]);
   });
 });

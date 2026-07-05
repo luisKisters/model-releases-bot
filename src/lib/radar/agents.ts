@@ -3,7 +3,7 @@ import type { SystemCardResult, EvidenceChunk } from "./systemCards";
 import type { BenchmarkEvidence, BenchmarkClaim } from "./benchmarks";
 import type { LlmRouter } from "./llm";
 import { completeWithBudget, CostTracker } from "./llm";
-import { extractModelNames } from "./text";
+import { extractModelNames, filterModelNamesForLab } from "./text";
 
 // ─── Evidence packet ─────────────────────────────────────────────────────────
 // A sealed, read-only bundle of already-fetched/extracted material that the
@@ -93,6 +93,7 @@ export type BenchmarkAggregatorOutput = {
 
 export type FinalWriterInput = {
   evidencePacket: EvidencePacket;
+  verifierFeedback?: VerifierFinding[];
 };
 
 export type FinalWriterOutput = {
@@ -201,9 +202,10 @@ export async function runResearcher(input: ResearcherInput): Promise<ResearcherO
 
   // Collect model names from benchmark evidence (most reliable), fall back to
   // pattern extraction from the article text when the benchmark stage found none.
-  const modelNames = benchmarkEvidence.modelNames.length > 0
+  const rawModelNames = benchmarkEvidence.modelNames.length > 0
     ? benchmarkEvidence.modelNames
     : extractModelNames(`${article.title ?? ""} ${article.body ?? ""}`);
+  const modelNames = filterModelNamesForLab(lab, rawModelNames);
 
   const articleChunks = buildArticleChunks(article);
 
@@ -383,6 +385,8 @@ export async function runFinalWriter(
   tracker: CostTracker,
 ): Promise<FinalWriterOutput> {
   const { evidencePacket } = input;
+  const allowedBenchmarkClaims = formatAllowedBenchmarkClaims(evidencePacket.claims);
+  const verifierFeedback = formatVerifierFeedback(input.verifierFeedback);
 
   // The final writer receives only the sealed evidence packet — no fetch/browser tools
   const systemPrompt = `You are writing a Telegram message announcing an AI model release.
@@ -396,18 +400,28 @@ Write a concise, clear message under 3800 characters that includes:
 - Source links
 
 Only include facts that appear in the evidence synthesis. State "Unknown" for missing information.
-Use plain text suitable for Telegram (no markdown). Do not invent capabilities or benchmark scores.`;
+Use plain text suitable for Telegram (no markdown). Do not invent capabilities or benchmark scores.
+
+Benchmark guardrails:
+- Named benchmark scores, benchmark names, rankings, and model-vs-model comparisons are allowed only when they appear in "Allowed Benchmark Claims".
+- If "Allowed Benchmark Claims" is "None", do not mention benchmark names, benchmark scores, rankings, SOTA/state-of-the-art, best/top, beats/outperforms/surpasses, trails/rivals, or competitor model names.
+- In that case, say that structured benchmark evidence or independent benchmark verification is unavailable.`;
 
   const userPrompt = `Lab: ${evidencePacket.lab}
 Models: ${evidencePacket.modelNames.join(", ")}
 Release Date: ${evidencePacket.releaseDate ?? "Unknown"}
 Official Article: ${evidencePacket.articleUrl}
 
+Allowed Benchmark Claims:
+${allowedBenchmarkClaims}
+
 Evidence Synthesis:
 ${evidencePacket.evidenceSynthesis.slice(0, 4000)}
 
 Additional references:
 ${evidencePacket.references.slice(0, 6).map((r) => `- ${r.kind}: ${r.url}`).join("\n")}
+
+${verifierFeedback}
 
 Write the Telegram announcement message.`;
 
@@ -417,6 +431,86 @@ Write the Telegram announcement message.`;
   ]);
 
   return { message: completion.text };
+}
+
+function formatAllowedBenchmarkClaims(claims: BenchmarkClaim[]): string {
+  if (claims.length === 0) {
+    return "None. The final message must avoid named benchmark claims, scores, rankings, and model-vs-model comparisons.";
+  }
+
+  return claims
+    .slice(0, 12)
+    .map((claim) => {
+      const value = claim.value ? `: ${claim.value}` : "";
+      const source = claim.sourceUrl ? ` (${claim.source}, ${claim.sourceUrl})` : ` (${claim.source})`;
+      return `- ${claim.name}${value}; status=${claim.status}${source}`;
+    })
+    .join("\n");
+}
+
+function formatVerifierFeedback(findings: VerifierFinding[] | undefined): string {
+  if (!findings || findings.length === 0) return "";
+
+  const lines = findings
+    .filter((finding) => finding.severity === "block")
+    .slice(0, 8)
+    .map((finding) => `- ${finding.issue}: ${finding.claim} — ${finding.detail}`);
+
+  if (lines.length === 0) return "";
+
+  return `Previous draft was rejected by the verifier. Rewrite from scratch and remove or correct every blocked claim:
+${lines.join("\n")}`;
+}
+
+function buildVerifierSafeFallbackMessage(evidencePacket: EvidencePacket): string {
+  const models = evidencePacket.modelNames.slice(0, 6);
+  const modelText = models.length > 0 ? models.join(", ") : "new model";
+  const sourceUrls = [
+    evidencePacket.articleUrl,
+    ...evidencePacket.references
+      .map((ref) => ref.url)
+      .filter((url) => url !== evidencePacket.articleUrl),
+  ].slice(0, 6);
+
+  const benchmarkContext = evidencePacket.claims.length > 0
+    ? evidencePacket.claims
+        .slice(0, 6)
+        .map((claim) => {
+          const value = claim.value ? ` ${claim.value}` : "";
+          return `• ${claim.name}${value} from ${claim.source}; status ${claim.status}`;
+        })
+        .join("\n")
+    : "Structured benchmark evidence was not extracted. Independent benchmark verification is unavailable.";
+
+  const safetyNotes = evidencePacket.systemCardStatus === "found"
+    ? "A related system or technical document was found in the evidence packet. Safety conclusions should be checked against the linked source."
+    : "No system card, safety card, or technical report was found for this release.";
+
+  return [
+    `${evidencePacket.lab} model release`,
+    `Models: ${modelText}`,
+    `Release date: ${evidencePacket.releaseDate ?? "Unknown"}`,
+    "",
+    "Summary:",
+    `The official article announces ${modelText}. The extracted evidence describes release details, access paths, and available source links.`,
+    "",
+    "Where it may be useful:",
+    "• API or product access is described by the official source.",
+    "• Architecture, deployment, or availability details are present in the extracted evidence.",
+    "",
+    "Benchmark context:",
+    benchmarkContext,
+    "",
+    "Safety/system notes:",
+    safetyNotes,
+    "",
+    "Known weaknesses and unknowns:",
+    "• Independent benchmark verification is unavailable unless listed above.",
+    "• Safety evaluations, limitations, pricing, and failure modes may be incomplete in the extracted evidence.",
+    "",
+    "Sources:",
+    ...sourceUrls,
+  ].join("\n").slice(0, 3800);
 }
 
 // ─── Verifier ─────────────────────────────────────────────────────────────────
@@ -616,10 +710,23 @@ function checkUnsupportedStrengths(
   const claims = extractClaimsFromMessage(message);
 
   for (const claim of claims) {
+    const hasStrongLanguage = /\b(best|state.of.the.art|sota|outperform|surpass|exceed|dominat|beats?|rivals?|trails?)\w*/i.test(claim);
+    if (!hasStrongLanguage) continue;
+
     if (
-      /\b(best|state.of.the.art|sota|outperform|surpass|exceed|dominat)\w*/i.test(claim) &&
-      !isSuperlativeClaimSupportedByEvidence(claim, evidencePacket)
+      evidencePacket.claims.length === 0 &&
+      /\b(benchmark|model|open[- ]source|closed[- ]source|rank|leaderboard|sota|state.of.the.art)\b/i.test(claim)
     ) {
+      findings.push({
+        claim,
+        issue: "unsupported_strength",
+        detail: `Comparative benchmark or ranking claim "${claim.slice(0, 100)}" requires at least one structured benchmark claim in the evidence packet.`,
+        severity: "block",
+      });
+      continue;
+    }
+
+    if (!isSuperlativeClaimSupportedByEvidence(claim, evidencePacket)) {
       findings.push({
         claim,
         issue: "unsupported_strength",
@@ -763,13 +870,33 @@ export async function runAgentOrchestration(
   };
 
   // Step 7: Final writer (OpenRouter Kimi) — receives sealed evidence packet only
-  const finalWriterOutput = await runFinalWriter({ evidencePacket }, router, tracker);
+  let finalWriterOutput = await runFinalWriter({ evidencePacket }, router, tracker);
 
   // Step 8: Verifier runs independently after final writing, before any send
-  const verifierOutput = runVerifier({
+  let verifierOutput = runVerifier({
     message: finalWriterOutput.message,
     evidencePacket,
   });
+
+  if (!verifierOutput.approved) {
+    finalWriterOutput = await runFinalWriter(
+      { evidencePacket, verifierFeedback: verifierOutput.findings },
+      router,
+      tracker,
+    );
+    verifierOutput = runVerifier({
+      message: finalWriterOutput.message,
+      evidencePacket,
+    });
+  }
+
+  if (!verifierOutput.approved) {
+    finalWriterOutput = { message: buildVerifierSafeFallbackMessage(evidencePacket) };
+    verifierOutput = runVerifier({
+      message: finalWriterOutput.message,
+      evidencePacket,
+    });
+  }
 
   return {
     evidencePacket,

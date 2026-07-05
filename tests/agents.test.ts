@@ -13,7 +13,14 @@ import {
   type ResearcherInput,
   type OrchestratorOptions,
 } from "../src/lib/radar/agents";
-import { createLlmRouter, CostTracker } from "../src/lib/radar/llm";
+import {
+  createLlmRouter,
+  CostTracker,
+  makeFakeLlmCompletion,
+  type LlmMessage,
+  type LlmRole,
+  type LlmRouter,
+} from "../src/lib/radar/llm";
 import type { ExtractedArticle } from "../src/lib/radar/types";
 import type { SystemCardResult } from "../src/lib/radar/systemCards";
 import type { BenchmarkEvidence } from "../src/lib/radar/benchmarks";
@@ -169,6 +176,25 @@ describe("runVerifier – unverified messages are blocked", () => {
         articleSummary: "DeepSeek released a model.",
         benchmarkSummary: "No benchmarks.",
         evidenceSynthesis: "Basic release.",
+      }),
+    );
+
+    const strengthFindings = result.findings.filter((f) => f.issue === "unsupported_strength");
+    expect(strengthFindings.length).toBeGreaterThan(0);
+    expect(result.approved).toBe(false);
+  });
+
+  it("blocks comparative benchmark language when no structured benchmark claims exist", () => {
+    const message = [
+      "Where it shines: open-source SOTA on agentic coding benchmarks.",
+      "Unknown: independent benchmark verification unavailable.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+
+    const result = runVerifier(
+      makeVerifierInput(message, {
+        claims: [],
+        evidenceSynthesis: "The vendor describes strong agentic coding performance.",
       }),
     );
 
@@ -535,6 +561,57 @@ describe("runFinalWriter – offline", () => {
     expect(stage).toBeDefined();
     expect(stage!.stage).toBe("final_writer");
   });
+
+  it("tells the final writer to avoid benchmark comparisons when no structured claims exist", async () => {
+    const calls: { role: LlmRole; messages: LlmMessage[] }[] = [];
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role, messages) {
+        calls.push({ role, messages });
+        return makeFakeLlmCompletion(role);
+      },
+    };
+
+    await runFinalWriter({ evidencePacket: makeEvidencePacket({ claims: [] }) }, router, new CostTracker(10));
+
+    const prompt = calls.find((call) => call.role === "final_writer")!.messages.map((m) => m.content).join("\n");
+    expect(prompt).toContain("Allowed Benchmark Claims:");
+    expect(prompt).toContain("None. The final message must avoid named benchmark claims");
+    expect(prompt).toContain("competitor model names");
+  });
+
+  it("passes structured benchmark claims into the final writer prompt", async () => {
+    const calls: { role: LlmRole; messages: LlmMessage[] }[] = [];
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role, messages) {
+        calls.push({ role, messages });
+        return makeFakeLlmCompletion(role);
+      },
+    };
+
+    await runFinalWriter(
+      {
+        evidencePacket: makeEvidencePacket({
+          claims: [
+            {
+              name: "MMLU",
+              value: "92.5%",
+              source: "vendor_article",
+              sourceUrl: "https://api-docs.deepseek.com/news/news260424",
+              provenance: "vendor",
+              status: "missing",
+            },
+          ],
+        }),
+      },
+      router,
+      new CostTracker(10),
+    );
+
+    const prompt = calls.find((call) => call.role === "final_writer")!.messages.map((m) => m.content).join("\n");
+    expect(prompt).toContain("- MMLU: 92.5%; status=missing");
+  });
 });
 
 // ─── Full orchestration: offline ─────────────────────────────────────────────
@@ -583,6 +660,81 @@ describe("runAgentOrchestration – offline", () => {
       options,
     );
     expect(options.tracker.stages.some((s) => s.stage === "article_summarizer")).toBe(true);
+  });
+
+  it("retries final writing once with verifier feedback after a rejected draft", async () => {
+    let finalWriterCalls = 0;
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role) {
+        if (role !== "final_writer") {
+          return makeFakeLlmCompletion(role);
+        }
+
+        finalWriterCalls += 1;
+        return makeFakeLlmCompletion(role, {
+          text: finalWriterCalls === 1
+            ? [
+                "Where it shines: open-source SOTA on agentic coding benchmarks.",
+                "Unknown: independent benchmark verification unavailable.",
+                "Source: https://api-docs.deepseek.com/news/news260424",
+              ].join("\n")
+            : [
+                "DeepSeek-V4-Pro released.",
+                "Benchmark context: structured benchmark evidence unavailable.",
+                "Unknown: independent benchmark verification and safety details unavailable.",
+                "Source: https://api-docs.deepseek.com/news/news260424",
+              ].join("\n"),
+        });
+      },
+    };
+
+    const result = await runAgentOrchestration(
+      "https://api-docs.deepseek.com/news/news260424",
+      makeArticle(),
+      makeSystemCardResult(),
+      makeBenchmarkEvidence({ claims: [] }),
+      { router, tracker: new CostTracker(10) },
+    );
+
+    expect(finalWriterCalls).toBe(2);
+    expect(result.approved).toBe(true);
+    expect(result.finalMessage).toContain("structured benchmark evidence unavailable");
+  });
+
+  it("falls back to a deterministic verifier-safe message after two rejected drafts", async () => {
+    let finalWriterCalls = 0;
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role) {
+        if (role !== "final_writer") {
+          return makeFakeLlmCompletion(role);
+        }
+
+        finalWriterCalls += 1;
+        return makeFakeLlmCompletion(role, {
+          text: [
+            "Where it shines: open-source SOTA on agentic coding benchmarks.",
+            "Unknown: independent benchmark verification unavailable.",
+            "Source: https://api-docs.deepseek.com/news/news260424",
+          ].join("\n"),
+        });
+      },
+    };
+
+    const result = await runAgentOrchestration(
+      "https://api-docs.deepseek.com/news/news260424",
+      makeArticle(),
+      makeSystemCardResult(),
+      makeBenchmarkEvidence({ claims: [] }),
+      { router, tracker: new CostTracker(10) },
+    );
+
+    expect(finalWriterCalls).toBe(2);
+    expect(result.approved).toBe(true);
+    expect(result.finalMessage).toContain("DeepSeek model release");
+    expect(result.finalMessage).toContain("Structured benchmark evidence was not extracted");
+    expect(result.verifierOutput.findings).toEqual([]);
   });
 
   it("evidence packet contains article URL", async () => {
