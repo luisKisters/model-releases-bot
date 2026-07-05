@@ -3,7 +3,7 @@ import { internal } from "./_generated/api";
 import { pollSource } from "../src/lib/radar/poller";
 import { sourceRegistry } from "../src/lib/radar/sources";
 import { evaluateArticleGate } from "../src/lib/radar/articleGate";
-import { formatTelegramSignal, sendTelegramMessage } from "../src/lib/radar/telegram";
+import { sendSourceFailureAlert } from "../src/lib/radar/telegram";
 import type { PollSourceInput, SignalConfidence, SignalType, SourceParser } from "../src/lib/radar/types";
 
 export const pollDueSources = internalAction({
@@ -37,7 +37,12 @@ export const pollDueSources = internalAction({
 
         for (const notification of failure.notificationsToSend) {
           notificationAttempts += 1;
-          const sent = await sendTelegramMessage(formatTelegramSignal(notification));
+          const sent = await sendSourceFailureAlert({
+            sourceId: notification.sourceId,
+            sourceLabel: notification.sourceLabel,
+            error: notification.failureError,
+            timestamp: new Date(Date.now()).toISOString(),
+          });
           await ctx.runMutation(internal.registry.recordNotification, {
             fingerprint: notification.fingerprint,
             channel: "telegram",
@@ -67,6 +72,9 @@ export const pollDueSources = internalAction({
       // For each signal that passed the source-level notify gate, check the article gate
       // and persist release candidates. Only verified candidates trigger Telegram.
       for (const notification of success.notificationsToSend) {
+        // Skip signals without a URL — fingerprint hashes are not valid canonical URLs
+        if (!notification.url) continue;
+
         // Run article gate before persisting a candidate
         const gateDecision = evaluateArticleGate({
           provider: source.provider,
@@ -78,7 +86,7 @@ export const pollDueSources = internalAction({
         const candidateResult = await ctx.runMutation(
           internal.releases.createOrSkipCandidate,
           {
-            canonicalArticleUrl: notification.url ?? notification.fingerprint,
+            canonicalArticleUrl: notification.url,
             lab: gateDecision.lab ?? source.provider,
             provider: source.provider,
             sourceId: source.sourceId,

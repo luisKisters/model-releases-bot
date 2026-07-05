@@ -634,6 +634,15 @@ export function evaluateOffline(
     }
   }
 
+  // Fail on false negatives (shouldSend:true but gate rejected)
+  for (const c of evaluatedCases) {
+    if (c.expectedShouldSend && !c.actualShouldSend) {
+      errors.push(
+        `False negative: fixture "${c.id}" has expectedShouldSend=true but gate returned shouldSend=false`,
+      );
+    }
+  }
+
   // Fail if any positive fixture lacks a verified final message
   for (const c of positiveCases) {
     if (c.verifierOutput !== undefined && !c.verifierApproved) {

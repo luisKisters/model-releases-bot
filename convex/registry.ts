@@ -298,9 +298,11 @@ export const recordPollFailure = internalMutation({
         {
           fingerprint,
           provider: source.provider,
+          sourceId: source.sourceId,
           title: `${source.label} failed 10 times: ${args.error}`,
           url: source.url,
           sourceLabel: source.label,
+          failureError: args.error,
           confidence: "source_failure",
           modelNames: [],
         },

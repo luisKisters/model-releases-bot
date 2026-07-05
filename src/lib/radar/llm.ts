@@ -283,7 +283,7 @@ const FAKE_RESPONSES: Record<LlmRole, FakeResponseDef> = {
     completionTokens: 100,
   },
   final_writer: {
-    text: "FAKE_FINAL_MESSAGE: Deterministic fake final Telegram message for offline testing.",
+    text: "FAKE_FINAL_MESSAGE: Deterministic fake final Telegram message for offline testing. Limitations: independent benchmark verification unknown.",
     promptTokens: 1024,
     completionTokens: 128,
   },
