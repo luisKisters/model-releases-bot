@@ -80,11 +80,13 @@ export function buildReleaseNote(options: {
 }): ReleaseNote {
   const { evidencePacket, verifierOutput } = options;
 
-  const evidenceLinks: ReleaseNoteEvidenceLink[] = evidencePacket.references.map((ref) => ({
-    kind: ref.kind as ReleaseNoteEvidenceLink["kind"],
-    label: titleCase(ref.kind),
-    url: ref.url,
-  }));
+  const evidenceLinks: ReleaseNoteEvidenceLink[] = evidencePacket.references
+    .filter((ref) => ref.kind !== "article")
+    .map((ref) => ({
+      kind: ref.kind as ReleaseNoteEvidenceLink["kind"],
+      label: titleCase(ref.kind),
+      url: ref.url,
+    }));
 
   const costSummary = buildCostSummary(evidencePacket.costTracker);
 

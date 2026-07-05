@@ -377,7 +377,7 @@ describe("runResearcher", () => {
     expect(output.references.some((r) => r.kind === "system_card")).toBe(true);
   });
 
-  it("returns empty modelNames when benchmark evidence has none", async () => {
+  it("falls back to article text extraction when benchmark evidence has no model names", async () => {
     const input: ResearcherInput = {
       articleUrl: "https://api-docs.deepseek.com/news/news260424",
       article: makeArticle(),
@@ -385,7 +385,10 @@ describe("runResearcher", () => {
       benchmarkEvidence: makeBenchmarkEvidence({ modelNames: [] }),
     };
     const output = await runResearcher(input);
-    expect(output.modelNames).toEqual([]);
+    // The article body contains "DeepSeek-V4-Pro" and "DeepSeek-V4-Flash" — the
+    // fallback must extract them rather than returning an empty array.
+    expect(output.modelNames.length).toBeGreaterThan(0);
+    expect(output.modelNames.some((n) => n.toLowerCase().includes("deepseek"))).toBe(true);
   });
 });
 

@@ -139,7 +139,7 @@ for (const releaseCase of selectedCases) {
 
   if (!note.gate.shouldSend) ok = false;
 
-  if (!dryRun && sendTg) {
+  if (!dryRun && sendTg && note.gate.shouldSend) {
     const { sendTelegramMessage } = await import("../src/lib/radar/telegram.ts");
     telegramResult = await sendTelegramMessage(message);
     if (!telegramResult.ok) ok = false;

@@ -106,7 +106,7 @@ describe("buildReleaseNote", () => {
     expect(note.modelNames).toEqual(["DeepSeek-V4-Pro", "DeepSeek-V4-Flash"]);
     expect(note.canonicalSourceUrl).toBe("https://api-docs.deepseek.com/news/news260424");
     expect(note.verifierStatus).toBe("verified");
-    expect(note.evidenceLinks).toHaveLength(2);
+    expect(note.evidenceLinks).toHaveLength(1); // article ref filtered; URL is in canonicalSourceUrl
     expect(note.costSummary.stages).toHaveLength(2);
     expect(note.costSummary.totalCostUsd).toBeGreaterThan(0);
   });

@@ -434,16 +434,22 @@ function compareClaims(
   if (vendorNum === null) return "not_comparable";
 
   let anyContradicted = false;
+  let anyNotComparable = false;
   for (const row of matchingRows) {
     const aaNum = parseNumericValue(row.value);
-    if (aaNum === null) return "not_comparable";
+    if (aaNum === null) {
+      anyNotComparable = true;
+      continue;
+    }
 
     const diff = Math.abs(vendorNum - aaNum);
     if (diff <= NUMERIC_TOLERANCE_PERCENT) return "supported";
     anyContradicted = true;
   }
 
-  return anyContradicted ? "contradicted" : "missing";
+  if (anyContradicted) return "contradicted";
+  if (anyNotComparable) return "not_comparable";
+  return "missing";
 }
 
 export function resolveClaimStatuses(

@@ -100,18 +100,10 @@ export const pollDueSources = internalAction({
           continue;
         }
 
-        // Gate passed and candidate is new — send a basic notification.
-        // Full pipeline (article extraction → evidence → verifier → release note)
-        // runs asynchronously via the smoke command or separate cron.
-        notificationAttempts += 1;
-        const sent = await sendTelegramMessage(formatTelegramSignal(notification));
-        await ctx.runMutation(internal.registry.recordNotification, {
-          fingerprint: notification.fingerprint,
-          channel: "telegram",
-          status: sent.ok ? "sent" : "failed",
-          error: sent.error,
-          now: Date.now(),
-        });
+        // Candidate is new and gate passed. The full verification pipeline
+        // (article extraction → evidence → verifier → release note) must approve
+        // before any Telegram message is sent. Trigger it via radar:smoke or a
+        // dedicated pipeline cron — do not send here.
       }
     }
 

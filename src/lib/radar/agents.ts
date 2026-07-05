@@ -3,6 +3,7 @@ import type { SystemCardResult, EvidenceChunk } from "./systemCards";
 import type { BenchmarkEvidence, BenchmarkClaim } from "./benchmarks";
 import type { LlmRouter } from "./llm";
 import { completeWithBudget, CostTracker } from "./llm";
+import { extractModelNames } from "./text";
 
 // ─── Evidence packet ─────────────────────────────────────────────────────────
 // A sealed, read-only bundle of already-fetched/extracted material that the
@@ -198,10 +199,11 @@ export async function runResearcher(input: ResearcherInput): Promise<ResearcherO
   const lab = extractLabFromUrl(article.finalUrl);
   const releaseDate = extractReleaseDateFromArticle(article);
 
-  // Collect model names from benchmark evidence (most reliable)
+  // Collect model names from benchmark evidence (most reliable), fall back to
+  // pattern extraction from the article text when the benchmark stage found none.
   const modelNames = benchmarkEvidence.modelNames.length > 0
     ? benchmarkEvidence.modelNames
-    : [];
+    : extractModelNames(`${article.title ?? ""} ${article.body ?? ""}`);
 
   const articleChunks = buildArticleChunks(article);
 
