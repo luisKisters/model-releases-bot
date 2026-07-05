@@ -521,7 +521,6 @@
       "provider": "Cohere",
       "title": "Introducing Command A",
       "url": "https://cohere.com/blog/command-a",
-      "requires_live_reverify": true,
       "expected": {
         "shouldSend": false,
         "rejectionReason": "unselected_lab",
@@ -614,7 +613,6 @@
       "provider": "Google Gemini",
       "title": "Gemini API models",
       "url": "https://ai.google.dev/gemini-api/docs/models",
-      "requires_live_reverify": true,
       "expected": {
         "shouldSend": false,
         "rejectionReason": "unsupported_source_host",
@@ -657,7 +655,6 @@
       "provider": "NVIDIA",
       "title": "NVIDIA Blackwell model deployment",
       "url": "https://developer.nvidia.com/blog/blackwell-ai-inference/",
-      "requires_live_reverify": true,
       "expected": {
         "shouldSend": false,
         "rejectionReason": "lab_specific_requirement_failed",
@@ -719,6 +716,57 @@
         "rejectionReason": "not_dedicated_article",
         "exclusionRule": "Root news index page is not a dedicated model release article",
         "lab": "OpenAI",
+        "modelNames": []
+      }
+    },
+
+    {
+      "id": "red-team-nvidia-blackwell-broad",
+      "provider": "NVIDIA",
+      "title": "NVIDIA Blackwell AI inference platform update",
+      "url": "https://blogs.nvidia.com/blog/blackwell-ai-inference-platform/",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "not_official_domain",
+        "exclusionRule": "blogs.nvidia.com broad platform posts are not Nemotron-specific model release articles",
+        "lab": "NVIDIA Nemotron",
+        "modelNames": []
+      }
+    },
+    {
+      "id": "red-team-deepseek-generic-models-index",
+      "provider": "DeepSeek",
+      "title": "DeepSeek Models",
+      "url": "https://api-docs.deepseek.com/docs/models/",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "not_dedicated_article",
+        "exclusionRule": "DeepSeek docs/models index is not a dedicated model release article",
+        "lab": "DeepSeek",
+        "modelNames": []
+      }
+    },
+    {
+      "id": "red-team-benchmark-only-page",
+      "provider": "ArtificialAnalysis",
+      "title": "DeepSeek V3 benchmark comparison on MMLU and HumanEval",
+      "url": "https://artificialanalysis.ai/models/deepseek-v3",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "unselected_lab",
+        "exclusionRule": "Artificial Analysis benchmark-only pages are evidence, not sendable release articles",
+        "modelNames": []
+      }
+    },
+    {
+      "id": "red-team-third-party-article",
+      "provider": "TechCrunch",
+      "title": "DeepSeek's new model beats GPT-4 on major benchmarks",
+      "url": "https://techcrunch.com/2025/01/01/deepseek-model-release/",
+      "expected": {
+        "shouldSend": false,
+        "rejectionReason": "unselected_lab",
+        "exclusionRule": "Third-party articles are not official lab release articles",
         "modelNames": []
       }
     }

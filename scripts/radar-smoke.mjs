@@ -5,7 +5,12 @@ import { extractSystemCards } from "../src/lib/radar/systemCards.ts";
 import { aggregateBenchmarkEvidence } from "../src/lib/radar/benchmarks.ts";
 import { runAgentOrchestration, extractLabFromUrl } from "../src/lib/radar/agents.ts";
 import { buildReleaseNote, canSendReleaseNote } from "../src/lib/radar/messages.ts";
-import { sendReleaseNote, telegramConfigured } from "../src/lib/radar/telegram.ts";
+import {
+  sendReleaseNote,
+  sendTelegramMessage,
+  shouldSendToTelegram,
+  telegramConfigured,
+} from "../src/lib/radar/telegram.ts";
 import { createLlmRouter, CostTracker, CostCapExceededError } from "../src/lib/radar/llm.ts";
 import { extractModelNames } from "../src/lib/radar/text.ts";
 import { sourceRegistry } from "../src/lib/radar/sources.ts";
@@ -19,11 +24,14 @@ import {
   releaseReplayCases,
   selectReleaseReplayCases,
 } from "../src/lib/radar/releaseMessages.ts";
+import { verifyClaims } from "../src/lib/radar/claimVerifier.ts";
+import { checkCostCap } from "../src/lib/radar/costGuard.ts";
 
 loadLocalEnv();
 
 const args = parseArgs(process.argv.slice(2));
 const dryRun = booleanArg(args["dry-run"], true);
+const fetchArticles = booleanArg(args.fetch, true);
 const sendTg = booleanArg(args["send-telegram"] ?? args.send, false) || process.env.RADAR_TELEGRAM_SEND_ENABLED === "true";
 const maxCostUsd = Number(args["max-cost-usd"] ?? process.env.MODEL_RELEASES_MAX_COST_USD ?? 1);
 const releaseUrl = args["release-url"] ? String(args["release-url"]) : null;
@@ -33,6 +41,18 @@ const requestedLabs = listArg(args.labs);
 const requireBrowser = booleanArg(args["require-browser"], false);
 const requireLlm = booleanArg(args["require-llm"], false);
 const requireArtificialAnalysis = booleanArg(args["require-artificial-analysis"], false);
+
+if (!Number.isFinite(maxCostUsd)) {
+  console.error(
+    JSON.stringify({
+      ok: false,
+      status: "failed",
+      reason: "invalid_max_cost_usd",
+      detail: "--max-cost-usd must be a finite number.",
+    }, null, 2)
+  );
+  process.exit(1);
+}
 
 const secretStatus = {
   deepseek: Boolean(process.env.DEEPSEEK_API_KEY),
@@ -115,34 +135,55 @@ let ok = true;
 
 for (const releaseCase of selectedCases) {
   let fetchResult = { ok: false, skipped: true };
-  try {
-    const res = await fetch(releaseCase.url, {
-      headers: {
-        accept: "text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.5",
-        "user-agent": "model-release-radar/0.1 (+https://github.com)",
-      },
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (res.ok) {
-      const html = await res.text();
-      fetchResult = { ok: true, status: res.status, bytes: html.length, html };
-    } else {
-      fetchResult = { ok: false, status: res.status, error: `${res.status} ${res.statusText}` };
+  if (fetchArticles) {
+    try {
+      const res = await fetch(releaseCase.url, {
+        headers: {
+          accept: "text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.5",
+          "user-agent": "model-release-radar/0.1 (+https://github.com)",
+        },
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (res.ok) {
+        const html = await res.text();
+        fetchResult = { ok: true, status: res.status, bytes: html.length, html };
+      } else {
+        fetchResult = { ok: false, status: res.status, error: `${res.status} ${res.statusText}` };
+      }
+    } catch (error) {
+      fetchResult = { ok: false, error: error instanceof Error ? error.message : String(error) };
     }
-  } catch (error) {
-    fetchResult = { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
 
   const note = buildVerifiedReleaseNote(releaseCase, fetchResult.ok ? { html: fetchResult.html } : {});
+  const claimResult = verifyClaims(note);
+  if (!claimResult.approved) {
+    note.verificationStatus = "rejected";
+  }
+
   const message = formatVerifiedReleaseNote(note);
   let telegramResult = null;
 
-  if (!note.gate.shouldSend) ok = false;
+  if (!note.gate.shouldSend || !claimResult.approved) {
+    ok = false;
+  }
 
-  if (!dryRun && sendTg && note.gate.shouldSend) {
-    const { sendTelegramMessage } = await import("../src/lib/radar/telegram.ts");
-    telegramResult = await sendTelegramMessage(message);
-    if (!telegramResult.ok) ok = false;
+  const telegramDecision = shouldSendToTelegram(note, { dryRun, sendTelegramFlag: sendTg });
+  if (telegramDecision.willSend) {
+    const costCheck = checkCostCap(note.costSummary.totalCostUsd, maxCostUsd);
+    if (costCheck.allowed) {
+      telegramResult = await sendTelegramMessage(message);
+      if (!telegramResult.ok) {
+        ok = false;
+      }
+    } else {
+      ok = false;
+      telegramResult = {
+        ok: false,
+        status: 0,
+        error: `Cost cap exceeded: $${costCheck.actualCostUsd} > $${costCheck.maxCostUsd}`,
+      };
+    }
   }
 
   results.push({
@@ -152,10 +193,12 @@ for (const releaseCase of selectedCases) {
     sourceUrl: note.sourceUrl,
     gate: note.gate,
     verificationStatus: note.verificationStatus,
+    claimVerification: claimResult,
     fetched: fetchResult.ok
       ? { ok: true, status: fetchResult.status, bytes: fetchResult.bytes }
       : fetchResult,
     evidenceLinks: note.evidenceLinks,
+    telegramDecision,
     telegram: telegramResult,
     message,
   });
@@ -166,6 +209,7 @@ if (!dryRun && sendTg && !telegramConfigured()) ok = false;
 const legacyResult = {
   ok,
   dryRun,
+  fetchArticles,
   mode: "replay",
   selectedReleaseIds: selectedCases.map((c) => c.id),
   maxCostUsd,
