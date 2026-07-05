@@ -254,13 +254,13 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 16: Documentation, Remote Secrets, And Handoff
 
-- [ ] Update README with final setup, selected-lab policy, exact rejection policy, source discovery behavior, cost model, eval commands, live smoke commands, and Telegram send instructions.
-- [ ] Document how executr/Docker should supply secrets without committing them.
-- [ ] Document browser dependency setup for Playwright inside executr.
-- [ ] Document how to run the DeepSeek V4 acceptance example.
-- [ ] Document how to interpret structured skips and verifier failures.
-- [ ] Add a final implementation report under `docs/` summarizing completed tasks, validation outputs, live smoke outputs, and any unavoidable waivers.
-- [ ] Run validation commands and fix all failures.
+- [x] Update README with final setup, selected-lab policy, exact rejection policy, source discovery behavior, cost model, eval commands, live smoke commands, and Telegram send instructions.
+- [x] Document how executr/Docker should supply secrets without committing them.
+- [x] Document browser dependency setup for Playwright inside executr.
+- [x] Document how to run the DeepSeek V4 acceptance example.
+- [x] Document how to interpret structured skips and verifier failures.
+- [x] Add a final implementation report under `docs/` summarizing completed tasks, validation outputs, live smoke outputs, and any unavoidable waivers.
+- [x] Run validation commands and fix all failures.
 
 ### Task 17: Final Review And Completion Gate
 
