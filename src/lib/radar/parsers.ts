@@ -114,6 +114,12 @@ function parseSitemap(source: SourceConfig, raw: string): ParsedSignal[] {
 }
 
 function parseMarkdownOrHtml(source: SourceConfig, raw: string): ParsedSignal[] {
+  // For HTML listing pages, prefer extracting individual article links over heading+listing-URL pairs.
+  const articleLinks = extractHtmlArticleLinks(source, raw);
+  if (articleLinks.length > 0) {
+    return articleLinks;
+  }
+
   const headingMatches = [
     ...raw.matchAll(/^#{1,3}\s+(.+)$/gm),
     ...raw.matchAll(/<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/gi),
@@ -142,6 +148,53 @@ function parseMarkdownOrHtml(source: SourceConfig, raw: string): ParsedSignal[] 
   return unique(candidates)
     .slice(0, MAX_ITEMS)
     .map((title) => signalFromParts(source, decodeEntities(title), source.url));
+}
+
+// Extract individual article links from an HTML listing page (e.g. /news, /blog).
+// Returns an empty array if no release-relevant links with same-origin article URLs are found.
+function extractHtmlArticleLinks(source: SourceConfig, raw: string): ParsedSignal[] {
+  let baseHostname: string;
+  let basePathname: string;
+  try {
+    const base = new URL(source.url);
+    baseHostname = base.hostname;
+    basePathname = base.pathname;
+  } catch {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const results: ParsedSignal[] = [];
+
+  for (const match of raw.matchAll(/<a[^>]+href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const href = match[1]?.trim();
+    const linkText = decodeEntities(stripTags(match[2] ?? "")).trim();
+
+    if (!href || !linkText || !looksReleaseRelevant(linkText)) continue;
+
+    let fullUrl: string;
+    let articlePathname: string;
+    try {
+      const parsed = new URL(href, source.url);
+      if (parsed.hostname !== baseHostname) continue;
+      articlePathname = parsed.pathname;
+      fullUrl = parsed.href;
+    } catch {
+      continue;
+    }
+
+    // Skip if same path as the listing page or a known index path
+    if (articlePathname === basePathname) continue;
+    if (/^\/?$|^\/news\/?$|^\/blog\/?$|\/feed|\/rss/.test(articlePathname)) continue;
+
+    if (seen.has(fullUrl)) continue;
+    seen.add(fullUrl);
+
+    results.push(signalFromParts(source, linkText, fullUrl));
+    if (results.length >= MAX_ITEMS) break;
+  }
+
+  return results;
 }
 
 function looksReleaseRelevant(value: string): boolean {

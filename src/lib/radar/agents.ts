@@ -465,6 +465,26 @@ function isSuperlativeClaimSupportedByEvidence(claim: string, evidencePacket: Ev
   return superlativeWords.every((w) => allText.includes(w));
 }
 
+// Common message metadata labels that match the benchmark pattern but are not benchmark claims.
+// e.g. "Release Date: 2026-07-05" → "Release Date" matches the regex but is not a benchmark.
+const NON_BENCHMARK_LABELS = new Set([
+  "release date",
+  "date",
+  "lab",
+  "models",
+  "source",
+  "cost",
+  "status",
+  "official article",
+  "context window",
+  "parameters",
+  "pricing",
+  "price",
+  "tokens",
+  "layers",
+  "heads",
+]);
+
 function checkBenchmarkClaims(
   message: string,
   evidencePacket: EvidencePacket,
@@ -478,6 +498,8 @@ function checkBenchmarkClaims(
     const benchmarkName = match[2] ?? match[3] ?? "";
 
     if (!benchmarkName || !value) continue;
+
+    if (NON_BENCHMARK_LABELS.has(benchmarkName.toLowerCase())) continue;
 
     // A benchmark claim is only "in evidence" if it appears in the structured claims list.
     // Text matches can include negations like "No HumanEval data" so we avoid text search.

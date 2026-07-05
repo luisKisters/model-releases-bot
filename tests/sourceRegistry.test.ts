@@ -288,6 +288,8 @@ describe("normalizeToDiscoveryCandidates — source adapters", () => {
     expect(candidates[0].sourceType).toBe("discovery");
     expect(candidates[0].discoveredVia).toBe("html");
     expect(candidates[0].canonicalUrl).toBeNull();
+    // Article links must be extracted from hrefs, not the listing-page URL
+    expect(candidates[0].candidateUrl).toBe("https://www.anthropic.com/news/claude-4");
   });
 
   it("changelog RSS items are tagged as discovery sourceType", () => {
