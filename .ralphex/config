@@ -3,13 +3,17 @@
 
 external_review_tool = codex
 default_branch = main
+# Implementation work lives on the model-release-bot branch. Point executr at
+# this branch when running the plans below.
+branch = model-release-bot
 plans_dir = docs/plans
 finalize_enabled = true
 move_plan_on_completion = true
 
-# Canonical executr/ralphex plans:
-# docs/plans/model-release-bot.md
-# docs/plans/model-release-bot-acceptance-red-team.md
+# Canonical executr/ralphex plans (both must be picked up from docs/plans/):
+#   Primary implementation: docs/plans/model-release-bot.md
+#   Acceptance / red-team:  docs/plans/model-release-bot-acceptance-red-team.md
+# Do NOT run plans from docs/plans/completed/ — those are archived, not active.
 
 # This repo should be safe to run in a fresh worktree because secrets are supplied
 # by environment or remote secret storage, not by untracked local files.

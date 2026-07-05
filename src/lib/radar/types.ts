@@ -21,6 +21,15 @@ export type SignalType =
   | "page_change"
   | "source_failure";
 
+/**
+ * "sendable": items from this source can, after passing the article gate,
+ *   trigger a Telegram release notification.
+ * "discovery": items from this source are candidates for further investigation
+ *   only — changelogs, index pages, release collections, model-card feeds,
+ *   docs catalogs, and benchmark pages are all discovery-only.
+ */
+export type SourceRole = "sendable" | "discovery";
+
 export type SourceConfig = {
   sourceId: string;
   provider: string;
@@ -32,7 +41,25 @@ export type SourceConfig = {
   pollEveryMinutes: number;
   enabled: boolean;
   notify: boolean;
+  sourceRole: SourceRole;
   urlIncludes?: string[];
+};
+
+export type DiscoveryCandidate = {
+  lab: string;
+  provider: string;
+  sourceId: string;
+  sourceType: SourceRole;
+  sourceUrl: string;
+  candidateUrl: string | null;
+  canonicalUrl: string | null;
+  title: string;
+  summary: string | null;
+  publishedAt: string | null;
+  updatedAt: string | null;
+  confidence: SignalConfidence;
+  rawMetadata: Record<string, unknown>;
+  discoveredVia: SourceParser;
 };
 
 export type ParsedSignal = {
@@ -75,3 +102,55 @@ export type PollFailure = {
 };
 
 export type PollResult = PollSuccess | PollFailure;
+
+export type FetchOptions = {
+  timeoutMs?: number;
+  maxRetries?: number;
+  userAgent?: string;
+};
+
+export type FetchedContent = {
+  url: string;
+  finalUrl: string;
+  statusCode: number;
+  contentType: string;
+  isRedirected: boolean;
+  body: string;
+  etag?: string;
+  lastModified?: string;
+};
+
+export type ImageAsset = {
+  src: string;
+  altText: string | null;
+  contentType: string | null;
+  byteSize: number | null;
+  width: number | null;
+  height: number | null;
+  resolves: boolean;
+};
+
+export type DownloadableAsset = {
+  url: string;
+  contentType: string | null;
+  byteSize: number | null;
+  filename: string | null;
+};
+
+export type ExtractedArticle = {
+  url: string;
+  canonicalUrl: string | null;
+  finalUrl: string;
+  title: string | null;
+  author: string | null;
+  publisher: string | null;
+  publishedAt: string | null;
+  updatedAt: string | null;
+  body: string | null;
+  headings: string[];
+  outboundLinks: string[];
+  images: ImageAsset[];
+  downloadableAssets: DownloadableAsset[];
+  reducedConfidence: boolean;
+  missingBrowserReason?: string;
+};

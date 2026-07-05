@@ -14,6 +14,7 @@ const source: SourceConfig = {
   pollEveryMinutes: 5,
   enabled: true,
   notify: true,
+  sourceRole: "sendable",
 };
 
 describe("pollSource", () => {

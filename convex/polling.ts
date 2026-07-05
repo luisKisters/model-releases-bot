@@ -2,7 +2,8 @@ import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { pollSource } from "../src/lib/radar/poller";
 import { sourceRegistry } from "../src/lib/radar/sources";
-import { formatTelegramSignal, sendTelegramMessage } from "../src/lib/radar/telegram";
+import { evaluateArticleGate } from "../src/lib/radar/articleGate";
+import { sendSourceFailureAlert } from "../src/lib/radar/telegram";
 import type { PollSourceInput, SignalConfidence, SignalType, SourceParser } from "../src/lib/radar/types";
 
 export const pollDueSources = internalAction({
@@ -36,7 +37,12 @@ export const pollDueSources = internalAction({
 
         for (const notification of failure.notificationsToSend) {
           notificationAttempts += 1;
-          const sent = await sendTelegramMessage(formatTelegramSignal(notification));
+          const sent = await sendSourceFailureAlert({
+            sourceId: notification.sourceId,
+            sourceLabel: notification.sourceLabel,
+            error: notification.failureError,
+            timestamp: new Date(Date.now()).toISOString(),
+          });
           await ctx.runMutation(internal.registry.recordNotification, {
             fingerprint: notification.fingerprint,
             channel: "telegram",
@@ -63,16 +69,49 @@ export const pollDueSources = internalAction({
       }
       createdSignals += success.createdSignals;
 
+      // For each signal that passed the source-level notify gate, check the article gate
+      // and persist release candidates. Only verified candidates trigger Telegram.
       for (const notification of success.notificationsToSend) {
-        notificationAttempts += 1;
-        const sent = await sendTelegramMessage(formatTelegramSignal(notification));
-        await ctx.runMutation(internal.registry.recordNotification, {
-          fingerprint: notification.fingerprint,
-          channel: "telegram",
-          status: sent.ok ? "sent" : "failed",
-          error: sent.error,
-          now: Date.now(),
+        // Skip signals without a URL — fingerprint hashes are not valid canonical URLs
+        if (!notification.url) continue;
+
+        // Run article gate before persisting a candidate
+        const gateDecision = evaluateArticleGate({
+          provider: source.provider,
+          title: notification.title,
+          url: notification.url,
         });
+
+        const isBaseline = !source.lastContentHash;
+        const candidateResult = await ctx.runMutation(
+          internal.releases.createOrSkipCandidate,
+          {
+            canonicalArticleUrl: notification.url,
+            lab: gateDecision.lab ?? source.provider,
+            provider: source.provider,
+            sourceId: source.sourceId,
+            sourceUrl: source.url,
+            title: notification.title,
+            modelNames: notification.modelNames,
+            releaseDate: undefined,
+            gateResult: {
+              shouldSend: gateDecision.shouldSend,
+              reasons: gateDecision.reason ? [gateDecision.reason] : [],
+            },
+            baseline: isBaseline,
+            now: Date.now(),
+          },
+        );
+
+        // Skip — gate rejected, baseline run, or duplicate candidate
+        if (!gateDecision.shouldSend || isBaseline || !candidateResult.created) {
+          continue;
+        }
+
+        // Candidate is new and gate passed. The full verification pipeline
+        // (article extraction → evidence → verifier → release note) must approve
+        // before any Telegram message is sent. Trigger it via radar:smoke or a
+        // dedicated pipeline cron — do not send here.
       }
     }
 
@@ -109,5 +148,8 @@ function toPollInput(source: {
     parser: source.parser as SourceParser,
     confidence: source.confidence as SignalConfidence,
     signalType: source.signalType as SignalType,
+    // DB rows pre-dating the sourceRole field default to sendable to preserve
+    // existing notify behaviour. New syncs will always store the real role.
+    sourceRole: source.notify ? "sendable" : "discovery",
   };
 }
