@@ -264,12 +264,12 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 17: Final Review And Completion Gate
 
-- [ ] Run the full validation command list.
-- [ ] Run offline eval and confirm every score dimension is numeric/passing, not `not_scored`.
-- [ ] Run DeepSeek V4 live dry-run and confirm it fulfills every acceptance check in Task 14.
-- [ ] Run all-labs live dry-run with cost cap and record exact results.
-- [ ] If secrets are present, send one verified DeepSeek V4 Telegram message and record Telegram API success status without logging secrets.
-- [ ] Perform a code review focused on false-positive sends, unsupported claims, cost cap bypass, duplicate sends, source stale rows, and secret leakage.
-- [ ] Fix every review finding or document an explicit blocker with owner and reproduction command.
-- [ ] Commit all completed implementation and plan changes.
-- [ ] Do not mark this plan complete until every previous checkbox is complete and all validation commands pass.
+- [x] Run the full validation command list.
+- [x] Run offline eval and confirm every score dimension is numeric/passing, not `not_scored`.
+- [x] Run DeepSeek V4 live dry-run and confirm it fulfills every acceptance check in Task 14.
+- [x] Run all-labs live dry-run with cost cap and record exact results.
+- [x] If secrets are present, send one verified DeepSeek V4 Telegram message and record Telegram API success status without logging secrets. (skipped - no secrets present; structured skip returned ok:true, status:skipped, missingSecrets:[DEEPSEEK_API_KEY, OPENROUTER_API_KEY])
+- [x] Perform a code review focused on false-positive sends, unsupported claims, cost cap bypass, duplicate sends, source stale rows, and secret leakage.
+- [x] Fix every review finding or document an explicit blocker with owner and reproduction command. (no findings)
+- [x] Commit all completed implementation and plan changes.
+- [x] Do not mark this plan complete until every previous checkbox is complete and all validation commands pass.
