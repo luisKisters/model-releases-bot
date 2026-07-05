@@ -245,12 +245,12 @@ If secrets are missing, the command must return a structured skip with `ok: true
 
 ### Task 15: Dashboard And Operator Visibility
 
-- [ ] Update the dashboard to show selected sources, discovery-only versus sendable status, latest candidates, verifier status, evidence links, costs, and notification status.
-- [ ] Make excluded/stale sources visible as disabled operational rows rather than silently disappearing.
-- [ ] Add dashboard states for missing secrets, latest smoke status, latest eval score, and last successful Telegram send.
-- [ ] Do not expose secret values in the dashboard.
-- [ ] Add tests or typed component checks for dashboard data shape.
-- [ ] Run validation commands and fix all failures.
+- [x] Update the dashboard to show selected sources, discovery-only versus sendable status, latest candidates, verifier status, evidence links, costs, and notification status.
+- [x] Make excluded/stale sources visible as disabled operational rows rather than silently disappearing.
+- [x] Add dashboard states for missing secrets, latest smoke status, latest eval score, and last successful Telegram send.
+- [x] Do not expose secret values in the dashboard.
+- [x] Add tests or typed component checks for dashboard data shape.
+- [x] Run validation commands and fix all failures.
 
 ### Task 16: Documentation, Remote Secrets, And Handoff
 
