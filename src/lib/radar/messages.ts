@@ -65,6 +65,9 @@ export type ReleaseNote = {
   verifierFindings: VerifierFinding[];
   checkedClaims: number;
 
+  // The verifier-approved final message from the LLM writer, used as Telegram body
+  finalMessage?: string;
+
   // Cost
   costSummary: ReleaseNoteCostSummary;
 };
@@ -114,6 +117,7 @@ export function buildReleaseNote(options: {
     verifierFindings: verifierOutput.findings,
     checkedClaims: verifierOutput.checkedClaims,
     costSummary,
+    finalMessage: options.finalMessage || undefined,
   };
 }
 
@@ -255,33 +259,6 @@ export function renderReleaseNoteForTelegram(note: ReleaseNote): string {
     .filter(Boolean)
     .join("\n");
 
-  const bodyParts: string[] = [];
-
-  if (note.whereItShines.length > 0) {
-    bodyParts.push("Where it shines:\n" + note.whereItShines.map((s) => `- ${s}`).join("\n"));
-  }
-
-  if (note.strengths.length > 0) {
-    bodyParts.push("Strengths:\n" + note.strengths.map((s) => `- ${s}`).join("\n"));
-  }
-
-  const unknowns = note.weaknessesUnknowns.length > 0
-    ? note.weaknessesUnknowns
-    : ["No weaknesses or unknowns reported."];
-  bodyParts.push("Weaknesses/unknowns:\n" + unknowns.map((s) => `- ${s}`).join("\n"));
-
-  if (note.benchmarkContext.length > 0) {
-    bodyParts.push(
-      "Benchmark context:\n" + note.benchmarkContext.map((s) => `- ${s}`).join("\n"),
-    );
-  }
-
-  if (note.safetySystemNotes.length > 0) {
-    bodyParts.push(
-      "Safety/system notes:\n" + note.safetySystemNotes.map((s) => `- ${s}`).join("\n"),
-    );
-  }
-
   const sourceLines = [
     `Official article: ${note.canonicalSourceUrl}`,
     ...note.evidenceLinks.slice(0, 4).map((l) => `${titleCase(l.kind)}: ${l.url}`),
@@ -296,7 +273,40 @@ export function renderReleaseNoteForTelegram(note: ReleaseNote): string {
           .join("\n")
       : "";
 
-  const body = truncateToLimit(bodyParts.join("\n\n"), TELEGRAM_BODY_LIMIT);
+  let body: string;
+  if (note.finalMessage) {
+    // Use the verifier-approved LLM output directly as body
+    body = truncateToLimit(note.finalMessage, TELEGRAM_BODY_LIMIT);
+  } else {
+    const bodyParts: string[] = [];
+
+    if (note.whereItShines.length > 0) {
+      bodyParts.push("Where it shines:\n" + note.whereItShines.map((s) => `- ${s}`).join("\n"));
+    }
+
+    if (note.strengths.length > 0) {
+      bodyParts.push("Strengths:\n" + note.strengths.map((s) => `- ${s}`).join("\n"));
+    }
+
+    const unknowns = note.weaknessesUnknowns.length > 0
+      ? note.weaknessesUnknowns
+      : ["No weaknesses or unknowns reported."];
+    bodyParts.push("Weaknesses/unknowns:\n" + unknowns.map((s) => `- ${s}`).join("\n"));
+
+    if (note.benchmarkContext.length > 0) {
+      bodyParts.push(
+        "Benchmark context:\n" + note.benchmarkContext.map((s) => `- ${s}`).join("\n"),
+      );
+    }
+
+    if (note.safetySystemNotes.length > 0) {
+      bodyParts.push(
+        "Safety/system notes:\n" + note.safetySystemNotes.map((s) => `- ${s}`).join("\n"),
+      );
+    }
+
+    body = truncateToLimit(bodyParts.join("\n\n"), TELEGRAM_BODY_LIMIT);
+  }
   const sources = sourceLines.join("\n");
   const costLine =
     note.costSummary.totalCostUsd > 0

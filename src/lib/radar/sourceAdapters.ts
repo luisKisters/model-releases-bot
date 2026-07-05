@@ -85,7 +85,12 @@ function parseHuggingFaceCandidates(
   source: SourceConfig,
   raw: string,
 ): DiscoveryCandidate[] {
-  const payload = JSON.parse(raw) as Array<Record<string, unknown>>;
+  let payload: Array<Record<string, unknown>>;
+  try {
+    payload = JSON.parse(raw) as Array<Record<string, unknown>>;
+  } catch {
+    return [];
+  }
 
   return payload.slice(0, MAX_ITEMS).map((model) => {
     const id = String(model.id ?? model.modelId ?? "unknown");
@@ -106,7 +111,12 @@ function parseJsonCatalogCandidates(
   source: SourceConfig,
   raw: string,
 ): DiscoveryCandidate[] {
-  const payload = JSON.parse(raw) as unknown;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return [];
+  }
   const items: unknown[] = Array.isArray(payload)
     ? payload
     : Array.isArray((payload as { data?: unknown }).data)
