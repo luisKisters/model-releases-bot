@@ -230,31 +230,6 @@ describe("article gate with URL-based provider detection", () => {
   });
 });
 
-// ─── Dry-run behavior ─────────────────────────────────────────────────────────
-
-describe("dry-run behavior", () => {
-  it("dry-run prevents send: dryRun=true means no Telegram call", () => {
-    // This is a logic contract test — the send path is guarded by `!dryRun && sendTg`
-    const dryRun = true;
-    const sendTg = true;
-    const shouldSend = !dryRun && sendTg;
-    expect(shouldSend).toBe(false);
-  });
-
-  it("no-dry-run with send-telegram allows sending", () => {
-    const dryRun = false;
-    const sendTg = true;
-    const shouldSend = !dryRun && sendTg;
-    expect(shouldSend).toBe(true);
-  });
-
-  it("dry-run with send-telegram still does not send", () => {
-    const dryRun = true;
-    const sendTg = true;
-    const shouldSend = !dryRun && sendTg;
-    expect(shouldSend).toBe(false);
-  });
-});
 
 // ─── Max-cost abort ───────────────────────────────────────────────────────────
 
@@ -309,53 +284,6 @@ describe("max-cost enforcement", () => {
   });
 });
 
-// ─── Structured skip for missing secrets ─────────────────────────────────────
-
-describe("structured skips for missing secrets", () => {
-  it("missing DEEPSEEK_API_KEY is reported in missingSecrets", () => {
-    const secretStatus = { deepseek: false, openrouter: true, artificialAnalysis: false, telegram: false };
-    const missingSecrets: string[] = [];
-    if (!secretStatus.deepseek) missingSecrets.push("DEEPSEEK_API_KEY");
-    if (!secretStatus.openrouter) missingSecrets.push("OPENROUTER_API_KEY");
-    if (!secretStatus.artificialAnalysis) missingSecrets.push("ARTIFICIAL_ANALYSIS_API_KEY");
-
-    expect(missingSecrets).toContain("DEEPSEEK_API_KEY");
-    expect(missingSecrets).not.toContain("OPENROUTER_API_KEY");
-  });
-
-  it("missing both LLM keys are reported", () => {
-    const secretStatus = { deepseek: false, openrouter: false, artificialAnalysis: false, telegram: false };
-    const missingSecrets: string[] = [];
-    if (!secretStatus.deepseek) missingSecrets.push("DEEPSEEK_API_KEY");
-    if (!secretStatus.openrouter) missingSecrets.push("OPENROUTER_API_KEY");
-
-    expect(missingSecrets).toContain("DEEPSEEK_API_KEY");
-    expect(missingSecrets).toContain("OPENROUTER_API_KEY");
-  });
-
-  it("missing telegram secret is reported separately", () => {
-    const secretStatus = { deepseek: true, openrouter: true, artificialAnalysis: false, telegram: false };
-    const missingSecrets: string[] = [];
-    if (!secretStatus.telegram) missingSecrets.push("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID");
-
-    expect(missingSecrets).toContain("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID");
-  });
-
-  it("structured skip result has ok: true when LLM secrets absent (non-required)", () => {
-    // When secrets are missing but not required, the result should be:
-    // ok: true, status: "skipped" — this is the spec contract for the smoke CLI
-    const skipResult = {
-      ok: true,
-      status: "skipped",
-      reason: "missing_llm_secrets",
-      missingSecrets: ["DEEPSEEK_API_KEY", "OPENROUTER_API_KEY"],
-    };
-
-    expect(skipResult.ok).toBe(true);
-    expect(skipResult.status).toBe("skipped");
-    expect(skipResult.reason).toBe("missing_llm_secrets");
-  });
-});
 
 // ─── Full pipeline integration (offline, fake LLM) ───────────────────────────
 
@@ -474,77 +402,6 @@ describe("DeepSeek V4 URL acceptance checks", () => {
   });
 });
 
-// ─── Send toggle: Telegram only sends when !dryRun && sendTg && configured ───
-
-describe("Telegram send toggle", () => {
-  it("send is blocked in dry run regardless of send-telegram flag", () => {
-    const dryRun = true;
-    const sendTg = true;
-    const telegramConfigured = true;
-    const shouldCallTelegram = !dryRun && sendTg && telegramConfigured;
-    expect(shouldCallTelegram).toBe(false);
-  });
-
-  it("send is allowed in non-dry-run with telegram configured", () => {
-    const dryRun = false;
-    const sendTg = true;
-    const telegramConfigured = true;
-    const shouldCallTelegram = !dryRun && sendTg && telegramConfigured;
-    expect(shouldCallTelegram).toBe(true);
-  });
-
-  it("send is blocked when telegram is not configured", () => {
-    const dryRun = false;
-    const sendTg = true;
-    const telegramConfigured = false;
-    const shouldCallTelegram = !dryRun && sendTg && telegramConfigured;
-    expect(shouldCallTelegram).toBe(false);
-  });
-
-  it("send is blocked when send-telegram flag is false", () => {
-    const dryRun = false;
-    const sendTg = false;
-    const telegramConfigured = true;
-    const shouldCallTelegram = !dryRun && sendTg && telegramConfigured;
-    expect(shouldCallTelegram).toBe(false);
-  });
-});
-
-// ─── Failure mode distinctions ────────────────────────────────────────────────
-
-describe("failure mode distinct reasons", () => {
-  it("network failure has distinct reason from LLM failure", () => {
-    const networkFailure = { ok: false, status: "failed", reason: "article_fetch_failed" };
-    const llmFailure = { ok: false, status: "failed", reason: "llm_pipeline_failed" };
-    expect(networkFailure.reason).not.toBe(llmFailure.reason);
-  });
-
-  it("cost cap exceeded has distinct reason", () => {
-    const costCapFailure = { ok: false, status: "failed", reason: "cost_cap_exceeded" };
-    const llmFailure = { ok: false, status: "failed", reason: "llm_pipeline_failed" };
-    expect(costCapFailure.reason).not.toBe(llmFailure.reason);
-  });
-
-  it("verifier rejection has distinct reason from telegram send failure", () => {
-    const verifierReject = { ok: false, status: "failed", reason: "verifier_rejected" };
-    const telegramFail = { ok: false, status: "failed", reason: "telegram_send_failed" };
-    expect(verifierReject.reason).not.toBe(telegramFail.reason);
-  });
-
-  it("gate rejection has distinct reason from missing secrets", () => {
-    const gateReject = { ok: false, status: "gate_rejected", reason: "article_gate_rejected" };
-    const secretSkip = { ok: true, status: "skipped", reason: "missing_llm_secrets" };
-    expect(gateReject.ok).toBe(false);
-    expect(secretSkip.ok).toBe(true);
-    expect(gateReject.reason).not.toBe(secretSkip.reason);
-  });
-
-  it("browser not available is distinct from article extraction failure", () => {
-    const browserRequired = { ok: false, status: "failed", reason: "browser_required_but_unavailable" };
-    const extractionFailed = { ok: false, status: "failed", reason: "article_extraction_failed" };
-    expect(browserRequired.reason).not.toBe(extractionFailed.reason);
-  });
-});
 
 // ─── DeepSeek V4 required acceptance tests (Task 14) ─────────────────────────
 // These tests verify the pipeline behaviors required by Task 14 against the

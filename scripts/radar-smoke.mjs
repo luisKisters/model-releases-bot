@@ -7,6 +7,7 @@ import { runAgentOrchestration, extractLabFromUrl } from "../src/lib/radar/agent
 import { buildReleaseNote, canSendReleaseNote } from "../src/lib/radar/messages.ts";
 import { sendReleaseNote, telegramConfigured } from "../src/lib/radar/telegram.ts";
 import { createLlmRouter, CostTracker, CostCapExceededError } from "../src/lib/radar/llm.ts";
+import { extractModelNames } from "../src/lib/radar/text.ts";
 import { sourceRegistry } from "../src/lib/radar/sources.ts";
 import { pollSource } from "../src/lib/radar/poller.ts";
 import { fetchUrl } from "../src/lib/radar/fetching.ts";
@@ -302,7 +303,7 @@ async function runReleasePipeline(url, { dryRun, sendTg, maxCostUsd, requireBrow
     }
 
     // --- Benchmark evidence ---
-    const modelNames = [];
+    const modelNames = extractModelNames(`${article.title ?? ""} ${article.body ?? ""}`);
     let benchmarkEvidence;
     try {
       benchmarkEvidence = await aggregateBenchmarkEvidence(

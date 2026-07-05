@@ -469,8 +469,15 @@ describe("notification records", () => {
       now: now + 1,
     });
 
-    // If we get here without an error, the mutations succeeded
-    expect(true).toBe(true);
+    const notifications = await t.run(async (ctx) => {
+      return ctx.db.query("notifications").collect();
+    });
+    expect(notifications).toHaveLength(2);
+    expect(notifications[0].signalFingerprint).toBe("some:fingerprint");
+    expect(notifications[0].status).toBe("sent");
+    expect(notifications[1].signalFingerprint).toBe("another:fingerprint");
+    expect(notifications[1].status).toBe("failed");
+    expect(notifications[1].error).toBe("network error");
   });
 });
 

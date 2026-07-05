@@ -1,5 +1,4 @@
 import { query } from "./_generated/server";
-import { telegramConfigured } from "../src/lib/radar/telegram";
 
 function secretsStatus() {
   return {
@@ -26,7 +25,7 @@ export const overview = query({
       ctx.db.query("signals").withIndex("by_first_seen").order("desc").take(40),
       ctx.db.query("models").withIndex("by_last_seen").order("desc").take(20),
       ctx.db.query("notifications").withIndex("by_created").order("desc").take(30),
-      ctx.db.query("releaseCandidates").withIndex("by_status").take(100),
+      ctx.db.query("releaseCandidates").order("desc").take(100),
       ctx.db.query("verifiedReleaseNotes").withIndex("by_created").order("desc").take(20),
     ]);
 
@@ -89,7 +88,7 @@ export const overview = query({
 
     return {
       // Secrets status (no values, only presence)
-      telegramConfigured: telegramConfigured(),
+      telegramConfigured: secrets.telegram,
       secrets,
       missingSecrets,
 

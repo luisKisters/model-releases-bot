@@ -95,12 +95,9 @@ export const pollDueSources = internalAction({
           },
         );
 
-        // Source failure alerts use the old path (not release note path)
-        if (!gateDecision.shouldSend || !candidateResult.created || isBaseline) {
-          if (!gateDecision.shouldSend || isBaseline) {
-            // Skip — either gate rejected or it's a baseline run (never send old releases)
-            continue;
-          }
+        // Skip — gate rejected, baseline run, or duplicate candidate
+        if (!gateDecision.shouldSend || isBaseline || !candidateResult.created) {
+          continue;
         }
 
         // Gate passed and candidate is new — send a basic notification.

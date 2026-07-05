@@ -50,7 +50,14 @@ const evidenceChunkInputValidator = v.object({
 const benchmarkRowInputValidator = v.object({
   name: v.string(),
   value: v.optional(v.string()),
-  source: v.union(v.literal("vendor"), v.literal("independent"), v.literal("unknown")),
+  source: v.union(
+    v.literal("vendor_article"),
+    v.literal("system_card"),
+    v.literal("technical_report"),
+    v.literal("artificial_analysis"),
+    v.literal("official_benchmark"),
+    v.literal("other"),
+  ),
   status: v.union(
     v.literal("supported"),
     v.literal("contradicted"),

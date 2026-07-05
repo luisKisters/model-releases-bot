@@ -155,7 +155,6 @@ const AA_ENDPOINTS: AAEndpointDef[] = [
 ];
 
 const AA_BASE_URL = "https://artificialanalysis.ai";
-const AA_ATTRIBUTION_URL = "https://artificialanalysis.ai";
 
 // --- Benchmark claim extraction from text ---
 
@@ -404,7 +403,7 @@ export async function queryArtificialAnalysis(
   return {
     ok: true,
     rows,
-    attribution: `Data from Artificial Analysis (${AA_ATTRIBUTION_URL}) — retrieved via API`,
+    attribution: `Data from Artificial Analysis (${AA_BASE_URL}) — retrieved via API`,
   };
 }
 
@@ -434,16 +433,17 @@ function compareClaims(
   const vendorNum = parseNumericValue(vendorClaim.value);
   if (vendorNum === null) return "not_comparable";
 
+  let anyContradicted = false;
   for (const row of matchingRows) {
     const aaNum = parseNumericValue(row.value);
     if (aaNum === null) return "not_comparable";
 
     const diff = Math.abs(vendorNum - aaNum);
     if (diff <= NUMERIC_TOLERANCE_PERCENT) return "supported";
-    return "contradicted";
+    anyContradicted = true;
   }
 
-  return "missing";
+  return anyContradicted ? "contradicted" : "missing";
 }
 
 export function resolveClaimStatuses(

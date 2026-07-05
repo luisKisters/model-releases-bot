@@ -31,7 +31,7 @@ Only official dedicated model-release articles pass the gate. Discovery feeds, d
 - AI Studio model docs, OpenRouter Gemini pages — not an official blog article
 - Changelog-only pages, docs-index-only pages, catalog-row-only pages, benchmark-only pages, social posts, third-party articles
 
-Kimi K2.6 is used through OpenRouter as the final-message writer. It is not a monitored lab.
+Kimi K2 is used through OpenRouter as the final-message writer. It is not a monitored lab.
 
 ### Source Discovery Behavior
 
@@ -124,8 +124,8 @@ All required variables are documented in `.env.example` without real values.
 | `TELEGRAM_CHAT_ID` | For send | Telegram target chat id |
 | `RADAR_TELEGRAM_SEND_ENABLED` | No | Set `true` to enable live sends; default `false` |
 | `DEEPSEEK_API_KEY` | For live LLM | DeepSeek API key for article/evidence summarization |
-| `OPENROUTER_API_KEY` | For live LLM | OpenRouter API key for Kimi K2.6 final writer |
-| `OPENROUTER_KIMI_MODEL` | No | Model ID; default `moonshotai/kimi-k2.6` |
+| `OPENROUTER_API_KEY` | For live LLM | OpenRouter API key for Kimi K2 final writer |
+| `OPENROUTER_KIMI_MODEL` | No | Model ID; default `moonshotai/kimi-k2` |
 | `ARTIFICIAL_ANALYSIS_API_KEY` | No | Artificial Analysis API key for benchmark data |
 | `MODEL_RELEASES_MAX_COST_USD` | No | Per-run cost cap in USD; default `1.00` |
 | `RADAR_BROWSER_ENABLED` | No | Set `true` to enable Playwright browser; default `false` |
@@ -135,7 +135,7 @@ All required variables are documented in `.env.example` without real values.
 The bot uses two LLM providers:
 
 - DeepSeek — article summarization, system-card topic summaries, benchmark aggregation, and evidence synthesis
-- OpenRouter Kimi K2.6 — final condensed user-facing message only
+- OpenRouter Kimi K2 — final condensed user-facing message only
 
 Pricing is configured in `src/lib/radar/llm.ts` with input/output token rates and last-verified dates. Per-stage token usage and estimated cost are recorded in every pipeline run and included in the final Telegram message.
 
