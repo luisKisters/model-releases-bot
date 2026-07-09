@@ -120,6 +120,7 @@ All required variables are documented in `.env.example` without real values.
 | --- | --- | --- |
 | `NEXT_PUBLIC_CONVEX_URL` | Yes | Convex deployment URL |
 | `CONVEX_DEPLOYMENT` | Yes | Convex deployment identifier |
+| `CONVEX_DEPLOY_KEY` | CI deploy | Convex deploy key used by GitHub Actions |
 | `TELEGRAM_BOT_TOKEN` | For send | Telegram bot token |
 | `TELEGRAM_CHAT_ID` | For send | Telegram target chat id |
 | `RADAR_TELEGRAM_SEND_ENABLED` | No | Set `true` to enable live sends; default `false` |
@@ -129,6 +130,38 @@ All required variables are documented in `.env.example` without real values.
 | `ARTIFICIAL_ANALYSIS_API_KEY` | No | Artificial Analysis API key for benchmark data |
 | `MODEL_RELEASES_MAX_COST_USD` | No | Per-run cost cap in USD; default `1.00` |
 | `RADAR_BROWSER_ENABLED` | No | Set `true` to enable Playwright browser; default `false` |
+
+## CI And Production Deploys
+
+GitHub Actions verifies every pull request and push with:
+
+```bash
+npm ci
+npm run typecheck
+npm test
+```
+
+Pushes to `main` deploy production through `.github/workflows/deploy.yml`:
+
+1. Convex deploy runs with `CONVEX_DEPLOY_KEY`.
+2. The Convex deployment URL is injected into the Vercel production build as `NEXT_PUBLIC_CONVEX_URL`.
+3. Vercel deploys the prebuilt production output.
+
+Required GitHub repository secrets:
+
+| Secret | Purpose |
+| --- | --- |
+| `CONVEX_DEPLOY_KEY` | Deploys the production Convex backend |
+| `VERCEL_TOKEN` | Authenticates Vercel CLI deploys |
+| `VERCEL_ORG_ID` | Selects the Vercel team |
+| `VERCEL_PROJECT_ID` | Selects the Vercel project |
+
+To immediately stop stale Telegram sends from any old Convex deployment, remove the Telegram environment variables from the production deployment:
+
+```bash
+npx convex env remove TELEGRAM_BOT_TOKEN --prod
+npx convex env remove TELEGRAM_CHAT_ID --prod
+```
 
 ## Cost Model
 
