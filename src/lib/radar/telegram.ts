@@ -148,9 +148,13 @@ export function formatTelegramSignal(signal: {
   sourceLabel: string;
   confidence: string;
   modelNames?: string[];
+  alertKind?: "model_release" | "major_incident";
 }) {
+  const prefix = signal.alertKind === "major_incident"
+    ? "Major model incident signal"
+    : "New model release signal";
   const lines = [
-    `New model release signal: ${signal.provider}`,
+    `${prefix}: ${signal.provider}`,
     signal.title,
     `Source: ${signal.sourceLabel}`,
     `Confidence: ${signal.confidence}`,

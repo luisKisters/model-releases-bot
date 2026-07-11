@@ -11,6 +11,11 @@ const SELECTED_LABS = [
   "DeepSeek",
   "Meta Llama",
   "xAI",
+  "Qwen",
+  "Kimi",
+  "Z.ai",
+  "MiniMax",
+  "Xiaomi MiMo",
   "NVIDIA Nemotron",
   "Deepgram",
   "ElevenLabs",
@@ -19,11 +24,6 @@ const SELECTED_LABS = [
 
 const EXCLUDED_PROVIDERS = [
   "cohere",
-  "qwen",
-  "kimi",
-  "z.ai",
-  "minimax",
-  "mimo",
   "openrouter",
   "huggingface-global",
   "huggingface.co/deepseek-ai",
@@ -150,6 +150,31 @@ describe("sourceRegistry — sendable vs discovery roles", () => {
     );
     expect(sendable.length).toBe(1);
     expect(discovery.length).toBe(1);
+  });
+
+  it("Qwen uses official blog/release-note sources only", () => {
+    const qwenSources = sourceRegistry.filter((s) => s.provider === "Qwen");
+    expect(qwenSources.some((s) => s.sourceId === "qwen-rss" && s.sourceRole === "sendable")).toBe(true);
+    expect(qwenSources.some((s) => s.sourceId === "qwen-blog" && s.sourceRole === "discovery")).toBe(true);
+    expect(JSON.stringify(qwenSources).toLowerCase()).not.toContain("huggingface");
+  });
+
+  it("Kimi uses official Kimi/Moonshot blog sources only", () => {
+    const kimiSources = sourceRegistry.filter((s) => s.provider === "Kimi");
+    expect(kimiSources.some((s) => s.sourceId === "kimi-blog")).toBe(true);
+    expect(kimiSources.some((s) => s.sourceId === "kimi-resources")).toBe(true);
+    expect(kimiSources.some((s) => s.sourceId === "kimi-platform-blog")).toBe(true);
+    expect(kimiSources.every((s) => s.sourceRole === "discovery")).toBe(true);
+    expect(JSON.stringify(kimiSources).toLowerCase()).not.toContain("huggingface");
+  });
+
+  it("Z.ai, MiniMax, and Xiaomi MiMo use official blog/docs sources only", () => {
+    for (const provider of ["Z.ai", "MiniMax", "Xiaomi MiMo"]) {
+      const sources = sourceRegistry.filter((s) => s.provider === provider);
+      expect(sources.length, `${provider} must have configured sources`).toBeGreaterThan(0);
+      expect(sources.every((s) => s.sourceRole === "discovery")).toBe(true);
+      expect(JSON.stringify(sources).toLowerCase()).not.toContain("huggingface");
+    }
   });
 
   it("Deepgram changelog is discovery-only", () => {

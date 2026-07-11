@@ -3,7 +3,7 @@ import { evaluateArticleGate } from "./articleGate";
 import { stableFingerprint } from "./hash";
 import { decodeEntities, extractModelNames, normalizeWhitespace, stripTags } from "./text";
 
-const MAX_ITEMS = 12;
+const MAX_ITEMS = 24;
 
 export function parseSourceContent(source: SourceConfig, raw: string): ParsedSignal[] {
   if (source.parser === "huggingfaceOrg") {
@@ -38,6 +38,7 @@ function signalFromParts(
     provider: source.provider,
     title: cleanedTitle,
     url: url || source.url,
+    summary: cleanedSummary,
     source,
   });
 
@@ -108,9 +109,13 @@ function parseSitemap(source: SourceConfig, raw: string): ParsedSignal[] {
       const lastmod = tagText(block, "lastmod");
       return { loc, lastmod };
     })
-    .filter(({ loc }) => loc && (includes.length === 0 || includes.some((part) => loc.includes(part))))
+    .filter((entry): entry is { loc: string; lastmod: string | undefined } => {
+      const loc = entry.loc;
+      return typeof loc === "string" &&
+        (includes.length === 0 || includes.some((part) => loc.includes(part)));
+    })
     .slice(0, MAX_ITEMS)
-    .map(({ loc, lastmod }) => signalFromParts(source, `${source.provider} page changed ${lastmod ?? ""}`, loc));
+    .map(({ loc, lastmod }) => signalFromParts(source, sitemapTitle(source.provider, loc, lastmod), loc));
 }
 
 function parseMarkdownOrHtml(source: SourceConfig, raw: string): ParsedSignal[] {
@@ -186,6 +191,7 @@ function extractHtmlArticleLinks(source: SourceConfig, raw: string): ParsedSigna
     // Skip if same path as the listing page or a known index path
     if (articlePathname === basePathname) continue;
     if (/^\/?$|^\/news\/?$|^\/blog\/?$|\/feed|\/rss/.test(articlePathname)) continue;
+    if (isUtilityPath(articlePathname)) continue;
 
     if (seen.has(fullUrl)) continue;
     seen.add(fullUrl);
@@ -197,8 +203,27 @@ function extractHtmlArticleLinks(source: SourceConfig, raw: string): ParsedSigna
   return results;
 }
 
+function isUtilityPath(pathname: string): boolean {
+  return /^\/(?:products?|features?|membership|pricing|help|showcases?|capabilities|user|agent(?:s)?|websites?|docs|slides|sheets)(?:\/|$)/i.test(
+    pathname,
+  );
+}
+
+function sitemapTitle(provider: string, loc: string, lastmod?: string): string {
+  let slug = "page";
+  try {
+    const pathname = new URL(loc).pathname;
+    const parts = pathname.split("/").filter(Boolean);
+    slug = parts[parts.length - 1] ?? "page";
+  } catch {
+    // Keep fallback slug.
+  }
+  const readableSlug = decodeURIComponent(slug).replace(/_+/g, "-");
+  return `${provider} ${readableSlug} page changed ${lastmod ?? ""}`;
+}
+
 function looksReleaseRelevant(value: string): boolean {
-  return /model|release|launch|available|api|pricing|changelog|gpt|claude|gemini|grok|llama|mistral|deepseek|qwen|kimi|glm|minimax|mimo|nemotron/i.test(
+  return /model|release|launch|announc|introduc|open[-\s]?source|open[-\s]?weight|post[-\s]?mortem|incident|outage|degradation|quality report|gpt|claude|gemini|grok|llama|mistral|deepseek|qwen|kimi|moonshot|glm|minimax|mimo|nemotron/i.test(
     value,
   );
 }

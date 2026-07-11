@@ -477,7 +477,7 @@ describe("evaluateArticleGate", () => {
     });
   });
 
-  // --- Unselected labs (negative tests) ---
+  // --- Added official labs (positive, no Hugging Face) ---
 
   it("rejects Cohere while it is not a selected lab", () => {
     expect(
@@ -492,64 +492,130 @@ describe("evaluateArticleGate", () => {
     });
   });
 
-  it("rejects Qwen as an unselected lab", () => {
+  it("accepts official Qwen blog model releases", () => {
     expect(
       evaluateArticleGate({
         provider: "Qwen",
-        title: "Qwen3 model released",
+        title: "Qwen3.6-Plus: Towards Real World Agents",
         url: "https://qwenlm.github.io/blog/qwen3/",
       }),
-    ).toMatchObject({ shouldSend: false, reason: "unselected_lab" });
+    ).toMatchObject({ shouldSend: true, lab: "Qwen" });
   });
 
-  it("rejects Kimi/Moonshot as an unselected lab", () => {
+  it("accepts official Kimi model pages and blog posts", () => {
     expect(
       evaluateArticleGate({
         provider: "Kimi",
-        title: "Kimi K2 released",
-        url: "https://kimi.moonshot.cn/news/kimi-k2",
+        title: "Kimi K2.7 Code",
+        url: "https://www.kimi.com/resources/kimi-k2-7-code",
       }),
-    ).toMatchObject({ shouldSend: false, reason: "unselected_lab" });
+    ).toMatchObject({ shouldSend: true, lab: "Kimi" });
   });
 
-  it("rejects Z.ai as an unselected lab", () => {
+  it("accepts official Z.ai GLM release posts", () => {
     expect(
       evaluateArticleGate({
         provider: "Z.ai",
-        title: "GLM-4 model released",
-        url: "https://z.ai/blog/glm-4",
+        title: "GLM-5.2: Built for Long-Horizon Tasks",
+        url: "https://z.ai/blog/glm-5.2",
       }),
-    ).toMatchObject({ shouldSend: false, reason: "unselected_lab" });
+    ).toMatchObject({ shouldSend: true, lab: "Z.ai" });
   });
 
-  it("rejects MiniMax as an unselected lab", () => {
+  it("accepts official MiniMax model release posts", () => {
     expect(
       evaluateArticleGate({
         provider: "MiniMax",
-        title: "MiniMax-VL-01 released",
-        url: "https://minimaxi.com/news/minimax-vl-01",
+        title: "MiniMax M3: Frontier Coding, 1M Context, Native Multimodality",
+        url: "https://www.minimax.io/blog/minimax-m3",
       }),
-    ).toMatchObject({ shouldSend: false, reason: "unselected_lab" });
+    ).toMatchObject({ shouldSend: true, lab: "MiniMax" });
   });
 
-  it("rejects Xiaomi MiMo as an unselected lab", () => {
+  it("accepts official Xiaomi MiMo model release logs", () => {
     expect(
       evaluateArticleGate({
         provider: "Xiaomi MiMo",
-        title: "MiMo-7B-RL released",
-        url: "https://github.com/xiaomi/mimo",
+        title: "2026-04-23 mimo-v2.5-pro Released",
+        url: "https://mimo.mi.com/docs/en-US/updates/model",
       }),
-    ).toMatchObject({ shouldSend: false, reason: "unselected_lab" });
+    ).toMatchObject({ shouldSend: true, lab: "Xiaomi MiMo" });
   });
 
-  it("rejects a Xiaomi HuggingFace update as an unselected lab", () => {
+  it("rejects Hugging Face updates for selected labs as non-official send sources", () => {
     expect(
       evaluateArticleGate({
         provider: "Xiaomi MiMo",
         title: "XiaomiMiMo/MiMo-7B-RL updated",
         url: "https://huggingface.co/XiaomiMiMo/MiMo-7B-RL",
       }),
-    ).toMatchObject({ shouldSend: false, reason: "unselected_lab" });
+    ).toMatchObject({ shouldSend: false, reason: "not_official_domain", lab: "Xiaomi MiMo" });
+  });
+
+  it("accepts official major model incident postmortems", () => {
+    expect(
+      evaluateArticleGate({
+        provider: "Anthropic",
+        title: "An update on recent Claude Code quality reports",
+        url: "https://www.anthropic.com/engineering/april-23-postmortem",
+      }),
+    ).toMatchObject({
+      shouldSend: true,
+      reason: "official_dedicated_major_incident_article",
+      lab: "Anthropic",
+      alertKind: "major_incident",
+    });
+  });
+
+  it("rejects product and marketing pages seen in production notification noise", () => {
+    expect(
+      evaluateArticleGate({
+        provider: "Deepgram",
+        title: "Article · AI Engineering & Research Enterprise restaurant brands deserve frontier voice AI models",
+        url: "https://deepgram.com/learn/enterprise-restaurant-brands-deserve-frontier-voice-ai-models",
+      }),
+    ).toMatchObject({ shouldSend: false, reason: "not_model_release" });
+
+    expect(
+      evaluateArticleGate({
+        provider: "xAI",
+        title: "Grok for PowerPoint",
+        url: "https://x.ai/news/introducing-powerpoint-addin",
+      }),
+    ).toMatchObject({ shouldSend: false, reason: "lab_specific_requirement_failed" });
+
+    expect(
+      evaluateArticleGate({
+        provider: "xAI",
+        title: "Grok on Amazon Bedrock",
+        url: "https://x.ai/news/grok-amazon-bedrock",
+        summary: "Grok models are now available via Amazon Bedrock.",
+      }),
+    ).toMatchObject({ shouldSend: false, reason: "lab_specific_requirement_failed" });
+
+    expect(
+      evaluateArticleGate({
+        provider: "NVIDIA Nemotron",
+        title: "Creating the NVIDIA Nemotron 3 Ultra NVFP4 Checkpoint with NVIDIA Model Optimizer",
+        url: "https://developer.nvidia.com/blog/creating-the-nvidia-nemotron-3-ultra-nvfp4-checkpoint-with-nvidia-model-optimizer/",
+      }),
+    ).toMatchObject({ shouldSend: false, reason: "lab_specific_requirement_failed" });
+
+    expect(
+      evaluateArticleGate({
+        provider: "Kimi",
+        title: "Kimi Open Platform: New Feature Release Log",
+        url: "https://platform.kimi.ai/blog/posts/changelog",
+      }),
+    ).toMatchObject({ shouldSend: false, reason: "lab_specific_requirement_failed" });
+
+    expect(
+      evaluateArticleGate({
+        provider: "Anthropic",
+        title: "Claude Corps",
+        url: "https://www.anthropic.com/claude-corps",
+      }),
+    ).toMatchObject({ shouldSend: false, reason: "not_model_release" });
   });
 
   // --- Generic index / root path rejections ---

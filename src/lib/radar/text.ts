@@ -2,7 +2,9 @@ const MODEL_NAME_PATTERNS = [
   /\bClaude\s+(?:(?:Sonnet|Opus|Haiku|Fable|Mythos)\s+\d+(?:\.\d+)?|(?:\d+(?:\.\d+)?\s+)?(?:Sonnet|Opus|Haiku))\b/gi,
   /\b(?:Sonnet|Opus|Haiku|Fable|Mythos)\s+\d+(?:\.\d+)?\b/gi,
   /\bMistral\s+(?:Small|Medium|Large|OCR|Embed|Saba|Nemo|Codestral|Voxtral)\s+\d+(?:\.\d+)?\b/gi,
-  /\bEleven\s+v\d+(?:\.\d+)?\b/gi,
+  /\bKimi\s+K\d+(?:\.\d+)*(?:\s+(?:Code|Thinking|Instruct|Dev|Researcher|Audio|VL))?\b/gi,
+  /\bMiniMax\s+M\d+(?:\.\d+)?\b/gi,
+  /\bEleven\s+(?:(?:Flash|Multilingual|Turbo)\s+)?v?\d+(?:\.\d+)?\b/gi,
   /\b(?:Scribe|Nova|Aura|Universal|Conformer)\s*[- ]?\d+(?:\.\d+)?\b/gi,
   /\bCommand\s+[A-Z][A-Z0-9.+-]*\b/g,
   /\b(?:gpt[-\w.]*|claude[-\w.]*|gemini[-\w.]*|grok[-\w.]*|llama[-\w.]*|mistral[-\w.]*|mixtral[-\w.]*|deepseek[-\w.]*|qwen[\w.-]*|kimi[-\w.]*|moonshot[-\w.]*|command[-\w.]*|jamba[-\w.]*|sonar[-\w.]*|glm[-\w.]*|minimax[-\w.]*|mimo[-\w.]*|nemotron[-\w.]*)\b/gi,
@@ -58,12 +60,16 @@ const LAB_MODEL_FILTERS: Record<string, RegExp> = {
   DeepSeek: /\bdeepseek\b/i,
   "Meta Llama": /\bllama\b/i,
   xAI: /\bgrok\b/i,
+  Qwen: /\bqwen\b/i,
+  Kimi: /\bkimi\b/i,
+  "Z.ai": /\b(?:glm|z\.?ai)\b/i,
+  MiniMax: /\b(?:minimax|hailuo|abab)\b/i,
+  "Xiaomi MiMo": /\bmimo\b/i,
   "NVIDIA Nemotron": /\bnemotron\b/i,
   Deepgram: /\b(?:nova|aura|scribe)\b/i,
   ElevenLabs: /\b(?:eleven|turbo)\b/i,
   AssemblyAI: /\b(?:universal|conformer)\b/i,
   Cohere: /\bcommand\b/i,
-  Xiaomi: /\bmimo\b/i,
 };
 
 function isLikelyModelArtifact(name: string): boolean {

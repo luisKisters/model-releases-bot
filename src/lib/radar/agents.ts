@@ -4,6 +4,7 @@ import type { BenchmarkEvidence, BenchmarkClaim } from "./benchmarks";
 import type { LlmRouter } from "./llm";
 import { completeWithBudget, CostTracker } from "./llm";
 import { extractModelNames, filterModelNamesForLab } from "./text";
+import { identifyProviderForUrl } from "./articleGate";
 
 // ─── Evidence packet ─────────────────────────────────────────────────────────
 // A sealed, read-only bundle of already-fetched/extracted material that the
@@ -138,6 +139,9 @@ function buildArticleChunks(article: ExtractedArticle): EvidenceChunk[] {
 }
 
 export function extractLabFromUrl(url: string): string {
+  const provider = identifyProviderForUrl(url);
+  if (provider) return provider;
+
   if (/anthropic\.com/i.test(url)) return "Anthropic";
   if (/openai\.com/i.test(url)) return "OpenAI";
   if (/blog\.google|deepmind\.google|googleblog\.com/i.test(url)) return "Google Gemini";

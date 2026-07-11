@@ -259,13 +259,13 @@ describe("article gate decisions match fixture expectations", () => {
     expect(decision.reason).toBe("not_official_domain");
   });
 
-  it("Xiaomi MiMo HuggingFace update is rejected as unselected_lab", () => {
+  it("Xiaomi MiMo HuggingFace update is rejected as not_official_domain", () => {
     const fixture = loadFixture();
     const entry = fixture.cases.find((c) => c.id === "xiaomi-mimo-hf-excluded");
     expect(entry).toBeDefined();
     const decision = evaluateArticleGate({ provider: entry!.provider, title: entry!.title, url: entry!.url });
     expect(decision.shouldSend).toBe(false);
-    expect(decision.reason).toBe("unselected_lab");
+    expect(decision.reason).toBe("not_official_domain");
   });
 
   it("broad NVIDIA non-Nemotron article is rejected", () => {
@@ -329,24 +329,24 @@ describe("negative fixtures cover all required exclusion rules", () => {
     expect(fixture.cases.find((c) => c.id === "cohere-command-a-excluded")).toBeDefined();
   });
 
-  it("has Qwen exclusion fixture", () => {
+  it("has Qwen official fixture", () => {
     const fixture = loadFixture();
-    expect(fixture.cases.find((c) => c.id === "qwen3-excluded")).toBeDefined();
+    expect(fixture.cases.find((c) => c.id === "qwen3-official-blog")).toBeDefined();
   });
 
-  it("has Kimi/Moonshot exclusion fixture", () => {
+  it("has Kimi/Moonshot official fixture", () => {
     const fixture = loadFixture();
-    expect(fixture.cases.find((c) => c.id === "kimi-k2-excluded")).toBeDefined();
+    expect(fixture.cases.find((c) => c.id === "kimi-k2-7-code-official")).toBeDefined();
   });
 
-  it("has Z.ai exclusion fixture", () => {
+  it("has Z.ai official fixture", () => {
     const fixture = loadFixture();
-    expect(fixture.cases.find((c) => c.id === "z-ai-glm4-excluded")).toBeDefined();
+    expect(fixture.cases.find((c) => c.id === "z-ai-glm5-2-official")).toBeDefined();
   });
 
-  it("has MiniMax exclusion fixture", () => {
+  it("has MiniMax official fixture", () => {
     const fixture = loadFixture();
-    expect(fixture.cases.find((c) => c.id === "minimax-excluded")).toBeDefined();
+    expect(fixture.cases.find((c) => c.id === "minimax-m3-official")).toBeDefined();
   });
 
   it("has Xiaomi MiMo HuggingFace exclusion fixture", () => {

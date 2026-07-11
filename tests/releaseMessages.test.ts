@@ -79,4 +79,17 @@ describe("release replay messages", () => {
       "DeepSeek-V4-Flash",
     ]);
   });
+
+  it("filters newly selected labs away from benchmark comparator models", () => {
+    const extracted = extractModelNames(
+      "Kimi K2.7 Code improves over Kimi K2.6 while benchmarks compare GPT-5.5 and Claude Opus 4.8. MiniMax M3 and GLM-5.2 are separate releases.",
+    );
+
+    expect(filterModelNamesForLab("Kimi", extracted)).toEqual([
+      "Kimi K2.7 Code",
+      "Kimi K2.6",
+    ]);
+    expect(filterModelNamesForLab("MiniMax", extracted)).toEqual(["MiniMax M3"]);
+    expect(filterModelNamesForLab("Z.ai", extracted)).toEqual(["GLM-5.2"]);
+  });
 });

@@ -38,7 +38,7 @@ export const syncSources = internalMutation({
           existing.url !== source.url ||
           existing.parser !== source.parser ||
           existing.enabled !== source.enabled;
-        await ctx.db.patch(existing._id, {
+        const patch = {
           provider: source.provider,
           label: source.label,
           url: source.url,
@@ -53,7 +53,15 @@ export const syncSources = internalMutation({
           nextPollAt: sourceChanged ? args.now : existing.nextPollAt,
           failureCount: sourceChanged ? 0 : existing.failureCount,
           lastError: sourceChanged ? "" : existing.lastError,
-        });
+        };
+        await ctx.db.patch(existing._id, sourceChanged
+          ? {
+              ...patch,
+              lastContentHash: "",
+              etag: "",
+              lastModified: "",
+            }
+          : patch);
       } else {
         await ctx.db.insert("sources", {
           ...source,
@@ -186,6 +194,7 @@ export const recordPollSuccess = internalMutation({
     const nextPollAt = args.now + source.pollEveryMinutes * 60_000;
     const notificationsToSend = [];
     let createdSignals = 0;
+    const createdSignalFingerprints: string[] = [];
 
     if (args.contentHash) {
       await ctx.db.insert("snapshots", {
@@ -227,6 +236,7 @@ export const recordPollSuccess = internalMutation({
         baseline: isBaseline,
       });
       createdSignals += 1;
+      createdSignalFingerprints.push(signal.fingerprint);
 
       for (const modelName of signal.modelNames) {
         await upsertModel(ctx, source.provider, modelName, args.now);
@@ -256,7 +266,7 @@ export const recordPollSuccess = internalMutation({
       lastError: "",
     });
 
-    return { createdSignals, notificationsToSend };
+    return { createdSignals, createdSignalFingerprints, notificationsToSend };
   },
 });
 

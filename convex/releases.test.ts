@@ -97,6 +97,88 @@ describe("source sync", () => {
     expect(allDue.every((s: { sourceId: string }) => s.sourceId === "openai-news")).toBe(true);
   });
 
+  test("re-enabled changed sources clear old hashes so the next poll is baseline", async () => {
+    const t = convexTest(schema, modules);
+    const source = {
+      sourceId: "qwen-rss",
+      provider: "Qwen",
+      label: "Qwen blog RSS",
+      url: "https://qwenlm.github.io/blog/index.xml",
+      parser: "rssAtom",
+      confidence: "official",
+      signalType: "release_note",
+      pollEveryMinutes: 5,
+      enabled: true,
+      notify: true,
+    };
+
+    await t.mutation(internal.registry.syncSources, { sources: [source], now: 1000 });
+    await t.mutation(internal.registry.recordPollSuccess, {
+      sourceId: "qwen-rss",
+      now: 1100,
+      statusCode: 200,
+      contentHash: "old-hash",
+      parsedSignals: [],
+    });
+
+    await t.mutation(internal.registry.syncSources, { sources: [], now: 2000 });
+    await t.mutation(internal.registry.syncSources, { sources: [source], now: 3000 });
+
+    const dueSources = await t.query(internal.registry.getDueSources, { now: 3000, limit: 10 });
+    const reenabled = dueSources.find((s: { sourceId: string }) => s.sourceId === "qwen-rss");
+    expect(reenabled).toBeDefined();
+    expect(reenabled!.enabled).toBe(true);
+    expect(reenabled!.lastContentHash).toBe("");
+    expect(reenabled!.etag).toBe("");
+    expect(reenabled!.lastModified).toBe("");
+  });
+
+  test("recordPollSuccess reports only newly created signal fingerprints", async () => {
+    const t = convexTest(schema, modules);
+    const source = {
+      sourceId: "openai-news-rss",
+      provider: "OpenAI",
+      label: "OpenAI news RSS",
+      url: "https://openai.com/news/rss.xml",
+      parser: "rssAtom",
+      confidence: "official",
+      signalType: "release_note",
+      pollEveryMinutes: 5,
+      enabled: true,
+      notify: true,
+    };
+    const signal = {
+      title: "Introducing GPT-5.7",
+      url: "https://openai.com/index/gpt-5-7",
+      modelNames: ["GPT-5.7"],
+      fingerprint: "gpt57",
+      confidence: "official",
+      signalType: "release_note",
+      shouldNotify: true,
+    };
+
+    await t.mutation(internal.registry.syncSources, { sources: [source], now: 1000 });
+    const first = await t.mutation(internal.registry.recordPollSuccess, {
+      sourceId: "openai-news-rss",
+      now: 1100,
+      statusCode: 200,
+      contentHash: "hash-1",
+      parsedSignals: [signal],
+    });
+    const second = await t.mutation(internal.registry.recordPollSuccess, {
+      sourceId: "openai-news-rss",
+      now: 1200,
+      statusCode: 200,
+      contentHash: "hash-2",
+      parsedSignals: [signal],
+    });
+
+    expect(first.createdSignals).toBe(1);
+    expect(first.createdSignalFingerprints).toEqual(["gpt57"]);
+    expect(second.createdSignals).toBe(0);
+    expect(second.createdSignalFingerprints).toEqual([]);
+  });
+
   test("disabled deepseek HuggingFace source after stale sync", async () => {
     const t = convexTest(schema, modules);
     const now = 1000;

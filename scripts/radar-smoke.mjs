@@ -579,7 +579,8 @@ async function runLabsPipeline(labSlugs, { dryRun, sendTg, maxCostUsd, limitPerL
     const seenUrls = new Set();
     const gatedCandidates = [];
 
-    // Discover candidates from each source — parsedSignals already have shouldNotify from article gate
+    // Discover candidates from each source. Discovery blog/index sources can still
+    // produce alertable articles after the article gate approves the individual URL.
     for (const source of labSources) {
       try {
         const pollResult = await pollSource({
@@ -592,12 +593,20 @@ async function runLabsPipeline(labSlugs, { dryRun, sendTg, maxCostUsd, limitPerL
         if (pollResult.ok && pollResult.parsedSignals) {
           for (const signal of pollResult.parsedSignals) {
             if (!signal.url || seenUrls.has(signal.url)) continue;
-            if (!signal.shouldNotify) continue;
+            const gate = evaluateArticleGate({
+              provider: source.provider,
+              title: signal.title,
+              url: signal.url,
+              summary: signal.summary,
+              source,
+            });
+            if (!gate.shouldSend) continue;
             seenUrls.add(signal.url);
             gatedCandidates.push({
               candidateUrl: signal.url,
               candidateTitle: signal.title,
               modelNames: signal.modelNames,
+              gateReason: gate.reason,
             });
           }
         }

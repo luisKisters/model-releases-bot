@@ -76,13 +76,16 @@ export const pollDueSources = internalAction({
       // Check every parsed article-like signal, including discovery sources.
       // The source role controls raw signal notification, but official articles
       // that pass the article gate should still become release candidates.
+      const createdSignalFingerprints = new Set(success.createdSignalFingerprints);
       for (const signal of result.parsedSignals) {
         if (!signal.url) continue;
+        if (!createdSignalFingerprints.has(signal.fingerprint)) continue;
 
         const gateDecision = evaluateArticleGate({
           provider: source.provider,
           title: signal.title,
           url: signal.url,
+          summary: signal.summary,
         });
 
         const isBaseline = !source.lastContentHash;
@@ -120,6 +123,7 @@ export const pollDueSources = internalAction({
           sourceLabel: source.label,
           confidence: signal.confidence,
           modelNames: signal.modelNames,
+          alertKind: gateDecision.alertKind ?? "model_release",
         }));
         await ctx.runMutation(internal.registry.recordNotification, {
           fingerprint: signal.fingerprint,
