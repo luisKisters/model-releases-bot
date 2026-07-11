@@ -15,12 +15,12 @@ export const sourceRegistry: SourceConfig[] = [
     "sendable",
   ),
   source(
-    "google-developers-gemini-feed",
+    "google-developers-gemini-search",
     "Google Gemini",
-    "Google Developers Gemini feed",
-    "https://developers.googleblog.com/feeds/posts/default/-/Gemini/",
-    "rssAtom",
-    "sendable",
+    "Google Developers Gemini search",
+    "https://developers.googleblog.com/en/search/?product_categories=Gemini",
+    "html",
+    "discovery",
   ),
 
   source("mistral-rss", "Mistral", "Mistral RSS", "https://mistral.ai/rss.xml", "rssAtom", "sendable"),

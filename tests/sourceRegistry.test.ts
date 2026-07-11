@@ -106,11 +106,15 @@ describe("sourceRegistry — sendable vs discovery roles", () => {
     expect(s!.sourceRole).toBe("discovery");
   });
 
-  it("Google Gemini has three sendable RSS sources", () => {
+  it("Google Gemini has two sendable RSS sources and one discovery search source", () => {
     const sendable = sourceRegistry.filter(
       (s) => s.provider === "Google Gemini" && s.sourceRole === "sendable",
     );
-    expect(sendable.length).toBe(3);
+    const discovery = sourceRegistry.filter(
+      (s) => s.provider === "Google Gemini" && s.sourceRole === "discovery",
+    );
+    expect(sendable.length).toBe(2);
+    expect(discovery.some((s) => s.sourceId === "google-developers-gemini-search")).toBe(true);
   });
 
   it("Mistral has a sendable RSS source", () => {
