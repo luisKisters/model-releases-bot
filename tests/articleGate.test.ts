@@ -502,6 +502,40 @@ describe("evaluateArticleGate", () => {
     ).toMatchObject({ shouldSend: true, lab: "Qwen" });
   });
 
+  it("accepts Qwen Model Studio notices but rejects non-Qwen Alibaba notices", () => {
+    expect(
+      evaluateArticleGate({
+        provider: "Qwen",
+        title: "Qwen-Image-2.0-Pro model update notice",
+        url: "https://www.alibabacloud.com/en/notice/detail?_p_lc=1&id=1894",
+      }),
+    ).toMatchObject({ shouldSend: true, lab: "Qwen" });
+
+    expect(
+      evaluateArticleGate({
+        provider: "Qwen",
+        title: "glm-5.1 model PTU service price increase notice",
+        url: "https://www.alibabacloud.com/en/notice/detail?_p_lc=1&id=1884",
+      }),
+    ).toMatchObject({
+      shouldSend: false,
+      reason: "lab_specific_requirement_failed",
+      lab: "Qwen",
+    });
+
+    expect(
+      evaluateArticleGate({
+        provider: "Qwen",
+        title: "DeepSeek-V4-Pro model context cache pricing adjustment",
+        url: "https://www.alibabacloud.com/en/notice/detail?_p_lc=1&id=1880",
+      }),
+    ).toMatchObject({
+      shouldSend: false,
+      reason: "lab_specific_requirement_failed",
+      lab: "Qwen",
+    });
+  });
+
   it("accepts official Kimi model pages and blog posts", () => {
     expect(
       evaluateArticleGate({

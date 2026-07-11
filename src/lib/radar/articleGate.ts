@@ -82,7 +82,7 @@ const LAB_RULES: LabRule[] = [
     lab: "Qwen",
     providers: ["Qwen"],
     hosts: ["qwen.ai", "qwenlm.github.io", "www.alibabacloud.com"],
-    requiredText: /qwen|alibaba/i,
+    requiredText: /qwen/i,
   },
   {
     lab: "Kimi",
