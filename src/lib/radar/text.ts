@@ -17,6 +17,8 @@ export function decodeEntities(value: string): string {
     .replaceAll("&gt;", ">")
     .replaceAll("&quot;", '"')
     .replaceAll("&#39;", "'")
+    .replaceAll("&rsquo;", "'")
+    .replaceAll("&lsquo;", "'")
     .replaceAll("&apos;", "'");
 }
 

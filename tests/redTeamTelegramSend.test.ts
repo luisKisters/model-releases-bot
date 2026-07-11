@@ -287,10 +287,32 @@ describe("red-team telegram: formatting length limits and source URL preservatio
       url: "https://www.anthropic.com/news/claude-sonnet-5",
       sourceLabel: "Anthropic Blog RSS",
       confidence: "official",
+      summary: "Claude Sonnet 5 is Anthropic's new mid-tier model for coding, reasoning, and everyday assistant workloads.",
       modelNames: ["Claude Sonnet 5", "claude-sonnet-5"],
     });
     expect(message.length).toBeLessThanOrEqual(4096);
+    expect(message).toContain("Model release");
+    expect(message).toContain("Summary: Claude Sonnet 5 is Anthropic's new mid-tier model");
+    expect(message).toContain("Models: Claude Sonnet 5");
     expect(message).toContain("https://www.anthropic.com/news/claude-sonnet-5");
+    expect(message).not.toContain("Confidence:");
+  });
+
+  it("cleans feed navigation labels and preserves a model family plus its variant", () => {
+    const message = formatTelegramSignal({
+      provider: "Qwen",
+      title: "Qwen3-Coder: Agentic Coding in the World",
+      sourceLabel: "Qwen blog RSS",
+      summary: "GITHUB HUGGING FACE MODELSCOPE DISCORD Today, we&rsquo;re announcing Qwen3-Coder.",
+      modelNames: ["Qwen3-Coder", "Qwen3-Coder-480B-A35B-Instruct"],
+      confidence: "official",
+      isTest: true,
+    });
+
+    expect(message).toContain("Summary: Today, we're announcing Qwen3-Coder.");
+    expect(message).toContain("Models: Qwen3-Coder, Qwen3-Coder-480B-A35B-Instruct");
+    expect(message).not.toContain("GITHUB HUGGING FACE");
+    expect(message).not.toContain("&rsquo;");
   });
 
   it("formatVerifiedReleaseNote evidence links are URLs (not raw model card page as sendable article)", () => {
@@ -364,7 +386,7 @@ describe("red-team telegram: source-failure alerts not labeled as model releases
     expect(gate.reason).toBe("not_dedicated_article");
   });
 
-  it("formatTelegramSignal header says 'New model release signal' — verify source_failure uses formatSourceFailureAlert instead", () => {
+  it("formatTelegramSignal header says 'Model release' — verify source_failure uses formatSourceFailureAlert instead", () => {
     const releaseMessage = formatTelegramSignal({
       provider: "Anthropic",
       title: "Test signal",
@@ -372,14 +394,14 @@ describe("red-team telegram: source-failure alerts not labeled as model releases
       sourceLabel: "Anthropic Blog",
       confidence: "official",
     });
-    expect(releaseMessage).toContain("New model release signal");
+    expect(releaseMessage).toContain("Model release");
 
     const failureAlert = formatSourceFailureAlert({
       sourceId: "anthropic-blog-rss",
       sourceLabel: "Anthropic Blog RSS",
       error: "HTTP 503",
     });
-    expect(failureAlert).not.toContain("New model release signal");
+    expect(failureAlert).not.toContain("Model release");
     expect(failureAlert).toContain("Operational alert");
   });
 

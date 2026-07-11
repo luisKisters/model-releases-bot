@@ -122,6 +122,7 @@ export const pollDueSources = internalAction({
           url: signal.url,
           sourceLabel: source.label,
           confidence: signal.confidence,
+          summary: signal.summary,
           modelNames: signal.modelNames,
           alertKind: gateDecision.alertKind ?? "model_release",
         }));

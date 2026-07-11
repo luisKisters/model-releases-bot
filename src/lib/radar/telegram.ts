@@ -1,6 +1,7 @@
 import type { ReleaseNote } from "./messages";
 import { renderReleaseNoteForTelegram, canSendReleaseNote, renderSourceFailureAlert } from "./messages";
 import type { SourceFailureAlert } from "./messages";
+import { decodeEntities, filterModelNamesForLab, normalizeWhitespace } from "./text";
 
 export type TelegramResult = {
   ok: boolean;
@@ -147,26 +148,95 @@ export function formatTelegramSignal(signal: {
   url?: string;
   sourceLabel: string;
   confidence: string;
+  summary?: string;
   modelNames?: string[];
   alertKind?: "model_release" | "major_incident";
+  isTest?: boolean;
 }) {
-  const prefix = signal.alertKind === "major_incident"
-    ? "Major model incident signal"
-    : "New model release signal";
+  const isIncident = signal.alertKind === "major_incident";
+  const title = cleanAlertText(signal.title);
+  const summary = makeSignalSummary({ ...signal, title, isIncident });
+  const modelNames = displayModelNames(signal.provider, signal.modelNames ?? []);
+  const prefix = signal.isTest
+    ? `TEST - ${isIncident ? "major model incident" : "model release"}`
+    : isIncident
+      ? "Major model incident"
+      : "Model release";
   const lines = [
-    `${prefix}: ${signal.provider}`,
-    signal.title,
-    `Source: ${signal.sourceLabel}`,
-    `Confidence: ${signal.confidence}`,
+    `${prefix}`,
+    `Lab: ${signal.provider}`,
+    `${isIncident ? "Incident" : "Release"}: ${title}`,
+    `Summary: ${summary}`,
   ];
 
-  if (signal.modelNames && signal.modelNames.length > 0) {
-    lines.push(`Models: ${signal.modelNames.slice(0, 6).join(", ")}`);
+  if (modelNames.length > 0) {
+    lines.push(`Models: ${modelNames.slice(0, 5).join(", ")}`);
   }
+
+  lines.push(`Source: ${signal.sourceLabel}`);
 
   if (signal.url) {
-    lines.push(signal.url);
+    lines.push(`Link: ${signal.url}`);
   }
 
-  return lines.join("\n");
+  return lines.join("\n").slice(0, 4096);
+}
+
+function cleanAlertText(value: string): string {
+  return normalizeWhitespace(decodeEntities(value)).replace(/\s+/g, " ").trim();
+}
+
+function makeSignalSummary(signal: {
+  provider: string;
+  title: string;
+  summary?: string;
+  modelNames?: string[];
+  isIncident: boolean;
+}): string {
+  const cleanedSummary = signal.summary ? cleanFeedSummary(signal.summary) : "";
+  if (cleanedSummary && !sameText(cleanedSummary, signal.title)) {
+    return truncateSentence(cleanedSummary, 320);
+  }
+
+  const modelNames = displayModelNames(signal.provider, signal.modelNames ?? []);
+  if (signal.isIncident) {
+    return `Official ${signal.provider} post about a model or API reliability issue that may affect users.`;
+  }
+
+  if (modelNames.length > 0) {
+    return `Official ${signal.provider} source announcing ${modelNames.slice(0, 3).join(", ")}.`;
+  }
+
+  return `Official ${signal.provider} source announcing a model-related release.`;
+}
+
+function sameText(left: string, right: string): boolean {
+  return left.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim() ===
+    right.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function truncateSentence(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength - 3).replace(/\s+\S*$/, "")}...`;
+}
+
+function cleanFeedSummary(value: string): string {
+  return cleanAlertText(value)
+    .replace(/^(?:(?:github|hugging face|modelscope|discord|twitter|x)\s*)+/i, "")
+    .trim();
+}
+
+function displayModelNames(provider: string, names: string[]): string[] {
+  const filtered = filterModelNamesForLab(provider, names);
+  const numberedNames = names.filter((name) => {
+    return /\d/.test(name) && filterModelNamesForLab(provider, [name]).length > 0;
+  });
+  const seen = new Set<string>();
+
+  return [...numberedNames, ...filtered].filter((name) => {
+    const key = name.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }

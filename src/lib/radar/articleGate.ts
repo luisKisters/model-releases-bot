@@ -30,6 +30,7 @@ type LabRule = {
   hosts: string[];
   requiredText?: RegExp;
   rejectedText?: RegExp;
+  additionalReleaseText?: RegExp;
   rejectedHosts?: string[];
   rejectedPath?: RegExp;
 };
@@ -60,6 +61,7 @@ const LAB_RULES: LabRule[] = [
     lab: "Mistral",
     providers: ["Mistral"],
     hosts: ["mistral.ai"],
+    additionalReleaseText: /\bnew\b/i,
   },
   {
     lab: "DeepSeek",
@@ -76,7 +78,7 @@ const LAB_RULES: LabRule[] = [
     lab: "xAI",
     providers: ["xAI"],
     hosts: ["x.ai"],
-    rejectedText: /\b(powerpoint|word|plugin marketplace|agent dashboard|interactive brokers|databricks|warp|bedrock|voices|add-?in)\b/i,
+    rejectedText: /\b(powerpoint|word|plugin marketplace|agent dashboard|interactive brokers|databricks|warp|bedrock|voices|add-?in|openclaw|opencode|kilo code|vapi|gopuff|etoro|skills?|composer|voice agent builder|use grok in|powering)\b/i,
   },
   {
     lab: "Qwen",
@@ -137,7 +139,7 @@ const LAB_RULES: LabRule[] = [
 ];
 
 const RELEASE_ACTION_TEXT =
-  /\b(announc(?:e|ed|ing|es)|introduc(?:e|ed|ing|es)|launch(?:ed|ing|es)?|release(?:d|s| notes?)?|ship(?:ped|s|ping)?|unveil(?:ed|s|ing)?|open[-\s]?sourc(?:e|ed|ing)|now available|generally available|new)\b/i;
+  /\b(announc(?:e|ed|ing|es)|introduc(?:e|ed|ing|es)|launch(?:ed|ing|es)?|release(?:d|s| notes?)?|ship(?:ped|s|ping)?|unveil(?:ed|s|ing)?|now available|generally available)\b/i;
 
 const MODEL_SUBJECT_TEXT =
   /\b(model|models|llm|large language model|foundation model|reasoning model|coding model|multimodal model|language model|vision model|speech model|audio model|image model|video model|open[-\s]?weight|open[-\s]?source|inference model)\b|gpt[-\s]?\d|o\d|claude|gemini|llama|mistral|mixtral|deepseek|grok|qwen|kimi|moonshot|glm|z\.?ai|minimax|mimo|nemotron|nova|aura|scribe|universal|conformer|eleven\s*v/i;
@@ -156,6 +158,15 @@ const MAJOR_INCIDENT_TEXT =
 
 const INCIDENT_SUBJECT_TEXT =
   /\b(model|models|api|inference|serving|latency|quality|reasoning|coding|responses?|claude|gpt|gemini|grok|qwen|kimi|glm|minimax|mimo|nemotron|deepseek|mistral|llama)\b/i;
+
+const OPERATIONAL_OR_ADMIN_UPDATE_TEXT =
+  /\b(update notice|model update notice|pricing adjustment|price adjustment|price increase|price reduction|service price|billing|context cache pricing|ptu service|decommission(?:ed|ing)?|deprecation|deprecated|field changes?|quota|rate limit|region launch|availability zone|maintenance|terms update|policy update|page changed)\b/i;
+
+const INTEGRATION_OR_CUSTOMER_STORY_TEXT =
+  /\b(use \w+ in|use grok in|powered by|powering|integration|integrations|connector|add-?in|plugin|marketplace|customer story|case study|partner(?:ship)?|workflow|agent builder|voice agent builder|generate documents|decks|spreadsheets|restaurant brands|regulated industries|on-premises deployments|confidential computing|market sentiment)\b/i;
+
+const NON_MODEL_FEATURE_TEXT =
+  /\b(batch diarization|diarization v\d|document generation|spreadsheet generation|presentation generation|skills in web|persistent expertise)\b/i;
 
 // Reject root indexes, feed URLs, model catalogs, changelogs, docs roots, and
 // release-notes pages that are never dedicated release articles.
@@ -226,6 +237,11 @@ export function evaluateArticleGate(candidate: ArticleGateCandidate): ArticleGat
   checks.dedicated_article = true;
 
   const searchable = `${candidate.title} ${candidate.summary ?? ""} ${parsedUrl.href}`;
+  const isMajorIncident = hasMajorIncidentLanguage(searchable);
+
+  if (!isMajorIncident && isOperationalOrProductUpdate(searchable)) {
+    return { shouldSend: false, reason: "not_model_release", lab: rule.lab, checks };
+  }
 
   if (rule.requiredText && !rule.requiredText.test(searchable)) {
     return { shouldSend: false, reason: "lab_specific_requirement_failed", lab: rule.lab, checks };
@@ -237,8 +253,8 @@ export function evaluateArticleGate(candidate: ArticleGateCandidate): ArticleGat
 
   checks.lab_specific_constraint = true;
 
-  const isModelRelease = hasModelReleaseLanguage(searchable);
-  const isMajorIncident = hasMajorIncidentLanguage(searchable);
+  const isModelRelease = hasModelReleaseLanguage(searchable) ||
+    (Boolean(rule.additionalReleaseText?.test(searchable)) && hasModelSubject(searchable));
 
   if (!isModelRelease && !isMajorIncident) {
     return { shouldSend: false, reason: "not_model_release", lab: rule.lab, checks };
@@ -266,8 +282,7 @@ export function evaluateArticleGate(candidate: ArticleGateCandidate): ArticleGat
 }
 
 function hasModelReleaseLanguage(searchable: string): boolean {
-  const hasModelSubject = MODEL_SUBJECT_TEXT.test(searchable) || VERSIONED_MODEL_TEXT.test(searchable);
-  if (!hasModelSubject) {
+  if (!hasModelSubject(searchable)) {
     return false;
   }
 
@@ -276,6 +291,18 @@ function hasModelReleaseLanguage(searchable: string): boolean {
     VERSIONED_MODEL_TEXT.test(searchable) ||
     OPEN_MODEL_ANNOUNCEMENT_TEXT.test(searchable) ||
     OFFICIAL_MODEL_NEWS_PATH.test(searchable)
+  );
+}
+
+function hasModelSubject(searchable: string): boolean {
+  return MODEL_SUBJECT_TEXT.test(searchable) || VERSIONED_MODEL_TEXT.test(searchable);
+}
+
+function isOperationalOrProductUpdate(searchable: string): boolean {
+  return (
+    OPERATIONAL_OR_ADMIN_UPDATE_TEXT.test(searchable) ||
+    INTEGRATION_OR_CUSTOMER_STORY_TEXT.test(searchable) ||
+    NON_MODEL_FEATURE_TEXT.test(searchable)
   );
 }
 

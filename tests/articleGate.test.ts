@@ -502,14 +502,24 @@ describe("evaluateArticleGate", () => {
     ).toMatchObject({ shouldSend: true, lab: "Qwen" });
   });
 
-  it("accepts Qwen Model Studio notices but rejects non-Qwen Alibaba notices", () => {
+  it("accepts Mistral model launches whose release cue is a new-model description", () => {
+    expect(
+      evaluateArticleGate({
+        provider: "Mistral",
+        title: "Pixtral Large: a new frontier-class multimodal model",
+        url: "https://mistral.ai/news/pixtral-large-2411/",
+      }),
+    ).toMatchObject({ shouldSend: true, lab: "Mistral" });
+  });
+
+  it("rejects Qwen Model Studio update notices and non-Qwen Alibaba notices", () => {
     expect(
       evaluateArticleGate({
         provider: "Qwen",
         title: "Qwen-Image-2.0-Pro model update notice",
         url: "https://www.alibabacloud.com/en/notice/detail?_p_lc=1&id=1894",
       }),
-    ).toMatchObject({ shouldSend: true, lab: "Qwen" });
+    ).toMatchObject({ shouldSend: false, reason: "not_model_release", lab: "Qwen" });
 
     expect(
       evaluateArticleGate({
@@ -519,7 +529,7 @@ describe("evaluateArticleGate", () => {
       }),
     ).toMatchObject({
       shouldSend: false,
-      reason: "lab_specific_requirement_failed",
+      reason: "not_model_release",
       lab: "Qwen",
     });
 
@@ -531,7 +541,7 @@ describe("evaluateArticleGate", () => {
       }),
     ).toMatchObject({
       shouldSend: false,
-      reason: "lab_specific_requirement_failed",
+      reason: "not_model_release",
       lab: "Qwen",
     });
   });
@@ -616,7 +626,7 @@ describe("evaluateArticleGate", () => {
         title: "Grok for PowerPoint",
         url: "https://x.ai/news/introducing-powerpoint-addin",
       }),
-    ).toMatchObject({ shouldSend: false, reason: "lab_specific_requirement_failed" });
+    ).toMatchObject({ shouldSend: false, reason: "not_model_release" });
 
     expect(
       evaluateArticleGate({
@@ -626,6 +636,38 @@ describe("evaluateArticleGate", () => {
         summary: "Grok models are now available via Amazon Bedrock.",
       }),
     ).toMatchObject({ shouldSend: false, reason: "lab_specific_requirement_failed" });
+
+    expect(
+      evaluateArticleGate({
+        provider: "xAI",
+        title: "Use Grok in OpenClaw Use your SuperGrok or X Premium subscription inside OpenClaw",
+        url: "https://x.ai/news/grok-openclaw",
+      }),
+    ).toMatchObject({ shouldSend: false, reason: "not_model_release" });
+
+    expect(
+      evaluateArticleGate({
+        provider: "xAI",
+        title: "Powering Gopuff's Go agent Gopuff launched an AI shopping assistant powered by Grok",
+        url: "https://x.ai/news/grok-gopuff",
+      }),
+    ).toMatchObject({ shouldSend: false, reason: "not_model_release" });
+
+    expect(
+      evaluateArticleGate({
+        provider: "xAI",
+        title: "Jul 1, 2026 Introducing the Voice Agent Builder",
+        url: "https://x.ai/news/grok-voice-agent-builder",
+      }),
+    ).toMatchObject({ shouldSend: false, reason: "not_model_release" });
+
+    expect(
+      evaluateArticleGate({
+        provider: "Z.ai",
+        title: "Z.ai glm-5.2 page changed 2026-06-30T03:07:25.937Z",
+        url: "https://docs.z.ai/guides/llm/glm-5.2",
+      }),
+    ).toMatchObject({ shouldSend: false, reason: "not_model_release" });
 
     expect(
       evaluateArticleGate({
