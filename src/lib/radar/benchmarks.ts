@@ -143,16 +143,16 @@ type AAEndpointDef = {
 };
 
 const AA_ENDPOINTS: AAEndpointDef[] = [
-  { modality: "language", path: "/api/models", label: "language" },
-  { modality: "coding", path: "/api/models", label: "language" },
-  { modality: "reasoning", path: "/api/models", label: "language" },
-  { modality: "multimodal", path: "/api/models", label: "language" },
+  { modality: "language", path: "/api/v2/data/llms/models", label: "language" },
+  { modality: "coding", path: "/api/v2/data/llms/models", label: "language" },
+  { modality: "reasoning", path: "/api/v2/data/llms/models", label: "language" },
+  { modality: "multimodal", path: "/api/v2/data/llms/models", label: "language" },
   { modality: "tts", path: "/api/text-to-speech", label: "text-to-speech" },
   { modality: "stt", path: "/api/speech-to-text", label: "speech-to-text" },
   { modality: "s2s", path: "/api/speech-to-speech", label: "speech-to-speech" },
-  { modality: "latency", path: "/api/models", label: "language" },
-  { modality: "throughput", path: "/api/models", label: "language" },
-  { modality: "price_performance", path: "/api/models", label: "language" },
+  { modality: "latency", path: "/api/v2/data/llms/models", label: "language" },
+  { modality: "throughput", path: "/api/v2/data/llms/models", label: "language" },
+  { modality: "price_performance", path: "/api/v2/data/llms/models", label: "language" },
 ];
 
 const AA_BASE_URL = "https://artificialanalysis.ai";
@@ -228,19 +228,46 @@ function modalityToAAEndpoint(modality: BenchmarkModality): AAEndpointDef | null
   return AA_ENDPOINTS.find((e) => e.modality === modality) ?? null;
 }
 
-function normalizeAARow(
+function normalizeAARows(
   raw: Record<string, unknown>,
   modality: BenchmarkModality,
   path: string,
-): ArtificialAnalysisRow | null {
+): ArtificialAnalysisRow[] {
   const modelId =
     typeof raw["model_id"] === "string"
       ? raw["model_id"]
       : typeof raw["slug"] === "string"
         ? raw["slug"]
-        : null;
+        : typeof raw["id"] === "string"
+          ? raw["id"]
+          : null;
 
-  if (!modelId) return null;
+  if (!modelId) return [];
+
+  const attributionUrl = `${AA_BASE_URL}${path}`;
+  const makeRow = (benchmark: string, rawValue: unknown): ArtificialAnalysisRow | null => {
+    if (typeof rawValue !== "number" && typeof rawValue !== "string") return null;
+    const value = rawValue;
+    return { modelId, benchmark, value, modality, attributionUrl };
+  };
+
+  // The current v2 API returns one model per item with metric groups rather
+  // than the legacy one-row-per-benchmark shape. Flatten it so claim matching
+  // remains independent of the upstream transport format.
+  const evaluations = raw["evaluations"];
+  if (evaluations && typeof evaluations === "object" && !Array.isArray(evaluations)) {
+    const rows = Object.entries(evaluations)
+      .map(([benchmark, value]) => makeRow(benchmark, value))
+      .filter((row): row is ArtificialAnalysisRow => row !== null);
+
+    const tokensPerSecond = makeRow("Tokens/s", raw["median_output_tokens_per_second"]);
+    const timeToFirstToken = makeRow("TTFT", raw["median_time_to_first_token_seconds"]);
+    return [
+      ...rows,
+      ...(tokensPerSecond ? [tokensPerSecond] : []),
+      ...(timeToFirstToken ? [timeToFirstToken] : []),
+    ];
+  }
 
   const benchmark =
     typeof raw["benchmark"] === "string"
@@ -249,21 +276,8 @@ function normalizeAARow(
         ? raw["metric"]
         : "unknown";
 
-  const rawValue = raw["value"] ?? raw["score"] ?? raw["result"] ?? null;
-  const value =
-    typeof rawValue === "number"
-      ? rawValue
-      : typeof rawValue === "string"
-        ? rawValue
-        : null;
-
-  return {
-    modelId,
-    benchmark,
-    value,
-    modality,
-    attributionUrl: `${AA_BASE_URL}${path}`,
-  };
+  const row = makeRow(benchmark, raw["value"] ?? raw["score"] ?? raw["result"] ?? null);
+  return row ? [row] : [];
 }
 
 export async function queryArtificialAnalysis(
@@ -320,7 +334,7 @@ export async function queryArtificialAnalysis(
       const response = await fetchImpl(url, {
         signal: controller.signal,
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          "x-api-key": apiKey,
           Accept: "application/json",
           "User-Agent": "model-release-radar/0.1",
         },
@@ -361,18 +375,17 @@ export async function queryArtificialAnalysis(
 
       const endpointModality = ep.modality;
       for (const raw of rawRows) {
-        const row = normalizeAARow(raw, endpointModality, ep.path);
-        if (!row) continue;
-
-        // Filter to requested model names (case-insensitive substring match)
-        const modelLower = row.modelId.toLowerCase();
-        const matchesModel = modelNames.some(
-          (name) =>
-            modelLower.includes(name.toLowerCase()) ||
-            name.toLowerCase().includes(modelLower),
-        );
-        if (matchesModel) {
-          rows.push(row);
+        for (const row of normalizeAARows(raw, endpointModality, ep.path)) {
+          // Filter to requested model names (case-insensitive substring match)
+          const modelLower = row.modelId.toLowerCase();
+          const matchesModel = modelNames.some(
+            (name) =>
+              modelLower.includes(name.toLowerCase()) ||
+              name.toLowerCase().includes(modelLower),
+          );
+          if (matchesModel) {
+            rows.push(row);
+          }
         }
       }
     } catch (err) {
