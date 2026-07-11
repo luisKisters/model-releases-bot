@@ -3,7 +3,7 @@ import { internal } from "./_generated/api";
 import { pollSource } from "../src/lib/radar/poller";
 import { sourceRegistry } from "../src/lib/radar/sources";
 import { evaluateArticleGate } from "../src/lib/radar/articleGate";
-import { sendSourceFailureAlert } from "../src/lib/radar/telegram";
+import { formatTelegramSignal, sendSourceFailureAlert, sendTelegramMessage } from "../src/lib/radar/telegram";
 import type { PollSourceInput, SignalConfidence, SignalType, SourceParser } from "../src/lib/radar/types";
 
 export const pollDueSources = internalAction({
@@ -69,30 +69,29 @@ export const pollDueSources = internalAction({
       }
       createdSignals += success.createdSignals;
 
-      // For each signal that passed the source-level notify gate, check the article gate
-      // and persist release candidates. Only verified candidates trigger Telegram.
-      for (const notification of success.notificationsToSend) {
-        // Skip signals without a URL — fingerprint hashes are not valid canonical URLs
-        if (!notification.url) continue;
+      // Check every parsed article-like signal, including discovery sources.
+      // The source role controls raw signal notification, but official articles
+      // that pass the article gate should still become release candidates.
+      for (const signal of result.parsedSignals) {
+        if (!signal.url) continue;
 
-        // Run article gate before persisting a candidate
         const gateDecision = evaluateArticleGate({
           provider: source.provider,
-          title: notification.title,
-          url: notification.url,
+          title: signal.title,
+          url: signal.url,
         });
 
         const isBaseline = !source.lastContentHash;
         const candidateResult = await ctx.runMutation(
           internal.releases.createOrSkipCandidate,
           {
-            canonicalArticleUrl: notification.url,
+            canonicalArticleUrl: signal.url,
             lab: gateDecision.lab ?? source.provider,
             provider: source.provider,
             sourceId: source.sourceId,
             sourceUrl: source.url,
-            title: notification.title,
-            modelNames: notification.modelNames,
+            title: signal.title,
+            modelNames: signal.modelNames,
             releaseDate: undefined,
             gateResult: {
               shouldSend: gateDecision.shouldSend,
@@ -108,10 +107,22 @@ export const pollDueSources = internalAction({
           continue;
         }
 
-        // Candidate is new and gate passed. The full verification pipeline
-        // (article extraction → evidence → verifier → release note) must approve
-        // before any Telegram message is sent. Trigger it via radar:smoke or a
-        // dedicated pipeline cron — do not send here.
+        notificationAttempts += 1;
+        const sent = await sendTelegramMessage(formatTelegramSignal({
+          provider: source.provider,
+          title: signal.title,
+          url: signal.url,
+          sourceLabel: source.label,
+          confidence: signal.confidence,
+          modelNames: signal.modelNames,
+        }));
+        await ctx.runMutation(internal.registry.recordNotification, {
+          fingerprint: signal.fingerprint,
+          channel: "telegram",
+          status: sent.ok ? "sent" : "failed",
+          error: sent.error,
+          now: Date.now(),
+        });
       }
     }
 
