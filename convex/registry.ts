@@ -17,6 +17,7 @@ const sourceConfig = v.object({
   pollEveryMinutes: v.number(),
   enabled: v.boolean(),
   notify: v.boolean(),
+  sourceRole: v.optional(v.string()),
   urlIncludes: v.optional(v.array(v.string())),
 });
 
@@ -30,6 +31,7 @@ export const syncSources = internalMutation({
         .query("sources")
         .withIndex("by_source_id", (q) => q.eq("sourceId", source.sourceId))
         .unique();
+      const sourceRole = normalizeSourceRole(source.sourceRole, source.notify);
 
       if (existing) {
         const sourceChanged =
@@ -46,6 +48,7 @@ export const syncSources = internalMutation({
           pollEveryMinutes: source.pollEveryMinutes,
           enabled: source.enabled,
           notify: source.notify,
+          sourceRole,
           urlIncludes: source.urlIncludes,
           nextPollAt: sourceChanged ? args.now : existing.nextPollAt,
           failureCount: sourceChanged ? 0 : existing.failureCount,
@@ -54,6 +57,7 @@ export const syncSources = internalMutation({
       } else {
         await ctx.db.insert("sources", {
           ...source,
+          sourceRole,
           nextPollAt: args.now,
           failureCount: 0,
         });
@@ -87,6 +91,17 @@ async function disableStaleSources(
       lastError: "disabled: source removed from registry",
     });
   }
+}
+
+function normalizeSourceRole(
+  sourceRole: string | undefined,
+  notify: boolean,
+): "sendable" | "discovery" {
+  if (sourceRole === "sendable" || sourceRole === "discovery") {
+    return sourceRole;
+  }
+
+  return notify ? "sendable" : "discovery";
 }
 
 export const getDueSources = internalQuery({

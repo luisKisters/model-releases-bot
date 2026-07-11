@@ -138,6 +138,7 @@ function toPollInput(source: {
   pollEveryMinutes: number;
   enabled: boolean;
   notify: boolean;
+  sourceRole?: string;
   urlIncludes?: string[];
   lastContentHash?: string;
   etag?: string;
@@ -150,6 +151,17 @@ function toPollInput(source: {
     signalType: source.signalType as SignalType,
     // DB rows pre-dating the sourceRole field default to sendable to preserve
     // existing notify behaviour. New syncs will always store the real role.
-    sourceRole: source.notify ? "sendable" : "discovery",
+    sourceRole: normalizeSourceRole(source.sourceRole, source.notify),
   };
+}
+
+function normalizeSourceRole(
+  sourceRole: string | undefined,
+  notify: boolean,
+): "sendable" | "discovery" {
+  if (sourceRole === "sendable" || sourceRole === "discovery") {
+    return sourceRole;
+  }
+
+  return notify ? "sendable" : "discovery";
 }
