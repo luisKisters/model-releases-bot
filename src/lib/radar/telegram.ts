@@ -8,6 +8,10 @@ export type TelegramResult = {
   error?: string;
 };
 
+export type TelegramMessageOptions = {
+  maxRetries?: number;
+};
+
 export type TelegramSendOptions = {
   dryRun?: boolean;
   sendTelegramFlag?: boolean;
@@ -46,31 +50,59 @@ export async function sendSourceFailureAlert(
   return sendTelegramMessage(text, fetchImpl);
 }
 
-export async function sendTelegramMessage(text: string, fetchImpl: typeof fetch = fetch): Promise<TelegramResult> {
+export async function sendTelegramMessage(
+  text: string,
+  fetchImpl: typeof fetch = fetch,
+  options: TelegramMessageOptions = {},
+): Promise<TelegramResult> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
+  const maxRetries = options.maxRetries ?? 1;
 
   if (!token || !chatId) {
     return { ok: false, status: 0, error: "Telegram env vars are missing" };
   }
 
-  const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: text.slice(0, 4096),
-      link_preview_options: { is_disabled: true },
-    }),
-  });
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: text.slice(0, 4096),
+        link_preview_options: { is_disabled: true },
+      }),
+    });
 
-  const payload = (await response.json().catch(() => null)) as { ok?: boolean; description?: string } | null;
+    const payload = (await response.json().catch(() => null)) as {
+      ok?: boolean;
+      description?: string;
+      parameters?: { retry_after?: number };
+    } | null;
 
-  return {
-    ok: response.ok && payload?.ok !== false,
-    status: response.status,
-    error: response.ok && payload?.ok !== false ? undefined : payload?.description ?? response.statusText,
-  };
+    const ok = response.ok && payload?.ok !== false;
+    if (ok) {
+      return { ok: true, status: response.status };
+    }
+
+    const retryAfter = payload?.parameters?.retry_after;
+    if (response.status === 429 && retryAfter && attempt < maxRetries) {
+      await sleep((retryAfter + 1) * 1000);
+      continue;
+    }
+
+    return {
+      ok: false,
+      status: response.status,
+      error: payload?.description ?? response.statusText,
+    };
+  }
+
+  return { ok: false, status: 0, error: "Telegram retry loop exhausted" };
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function shouldSendToTelegram(

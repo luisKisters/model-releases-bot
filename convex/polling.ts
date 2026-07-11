@@ -6,6 +6,8 @@ import { evaluateArticleGate } from "../src/lib/radar/articleGate";
 import { formatTelegramSignal, sendSourceFailureAlert, sendTelegramMessage } from "../src/lib/radar/telegram";
 import type { PollSourceInput, SignalConfidence, SignalType, SourceParser } from "../src/lib/radar/types";
 
+const TELEGRAM_SEND_SPACING_MS = 3200;
+
 export const pollDueSources = internalAction({
   args: {},
   handler: async (ctx) => {
@@ -22,6 +24,7 @@ export const pollDueSources = internalAction({
     let failedSources = 0;
     let createdSignals = 0;
     let notificationAttempts = 0;
+    let lastTelegramSendAt = 0;
 
     for (const source of dueSources) {
       const result = await pollSource(toPollInput(source));
@@ -37,6 +40,7 @@ export const pollDueSources = internalAction({
 
         for (const notification of failure.notificationsToSend) {
           notificationAttempts += 1;
+          lastTelegramSendAt = await waitForTelegramPace(lastTelegramSendAt);
           const sent = await sendSourceFailureAlert({
             sourceId: notification.sourceId,
             sourceLabel: notification.sourceLabel,
@@ -108,6 +112,7 @@ export const pollDueSources = internalAction({
         }
 
         notificationAttempts += 1;
+        lastTelegramSendAt = await waitForTelegramPace(lastTelegramSendAt);
         const sent = await sendTelegramMessage(formatTelegramSignal({
           provider: source.provider,
           title: signal.title,
@@ -164,6 +169,15 @@ function toPollInput(source: {
     // existing notify behaviour. New syncs will always store the real role.
     sourceRole: normalizeSourceRole(source.sourceRole, source.notify),
   };
+}
+
+async function waitForTelegramPace(lastTelegramSendAt: number) {
+  const now = Date.now();
+  const waitMs = Math.max(0, TELEGRAM_SEND_SPACING_MS - (now - lastTelegramSendAt));
+  if (waitMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
+  return Date.now();
 }
 
 function normalizeSourceRole(
