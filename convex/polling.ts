@@ -3,7 +3,8 @@ import { internal } from "./_generated/api";
 import { pollSource } from "../src/lib/radar/poller";
 import { sourceRegistry } from "../src/lib/radar/sources";
 import { evaluateArticleGate } from "../src/lib/radar/articleGate";
-import { formatTelegramSignal, sendSourceFailureAlert, sendTelegramMessage } from "../src/lib/radar/telegram";
+import { detectEvidenceLinks } from "../src/lib/radar/systemCards";
+import { formatTelegramSignal, sendSourceFailureAlert, sendTelegramMarkdownMessage } from "../src/lib/radar/telegram";
 import type { PollSourceInput, SignalConfidence, SignalType, SourceParser } from "../src/lib/radar/types";
 
 const TELEGRAM_SEND_SPACING_MS = 3200;
@@ -116,7 +117,8 @@ export const pollDueSources = internalAction({
 
         notificationAttempts += 1;
         lastTelegramSendAt = await waitForTelegramPace(lastTelegramSendAt);
-        const sent = await sendTelegramMessage(formatTelegramSignal({
+        const systemCard = await inspectSystemCard(signal.url);
+        const sent = await sendTelegramMarkdownMessage(formatTelegramSignal({
           provider: source.provider,
           title: signal.title,
           url: signal.url,
@@ -125,6 +127,7 @@ export const pollDueSources = internalAction({
           summary: signal.summary,
           modelNames: signal.modelNames,
           alertKind: gateDecision.alertKind ?? "model_release",
+          systemCard,
         }));
         await ctx.runMutation(internal.registry.recordNotification, {
           fingerprint: signal.fingerprint,
@@ -174,6 +177,40 @@ function toPollInput(source: {
     // existing notify behaviour. New syncs will always store the real role.
     sourceRole: normalizeSourceRole(source.sourceRole, source.notify),
   };
+}
+
+async function inspectSystemCard(url: string): Promise<{
+  status: "linked" | "not_linked" | "unavailable";
+  url?: string;
+  label?: string;
+}> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
+        "user-agent": "model-release-radar/0.1 (+https://github.com)",
+      },
+    });
+    if (!response.ok) {
+      return { status: "unavailable" };
+    }
+
+    const html = await response.text();
+    const evidence = detectEvidenceLinks(html, url).find((link) =>
+      link.kind === "system_card" || link.kind === "safety_card" || link.kind === "technical_report",
+    );
+    if (!evidence) {
+      return { status: "not_linked" };
+    }
+
+    return {
+      status: "linked",
+      url: evidence.url,
+      label: evidence.anchorText ?? evidence.kind.replaceAll("_", " "),
+    };
+  } catch {
+    return { status: "unavailable" };
+  }
 }
 
 async function waitForTelegramPace(lastTelegramSendAt: number) {

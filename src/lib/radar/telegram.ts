@@ -11,6 +11,7 @@ export type TelegramResult = {
 
 export type TelegramMessageOptions = {
   maxRetries?: number;
+  parseMode?: "MarkdownV2";
 };
 
 export type TelegramSendOptions = {
@@ -71,6 +72,7 @@ export async function sendTelegramMessage(
       body: JSON.stringify({
         chat_id: chatId,
         text: text.slice(0, 4096),
+        ...(options.parseMode ? { parse_mode: options.parseMode } : {}),
         link_preview_options: { is_disabled: true },
       }),
     });
@@ -100,6 +102,17 @@ export async function sendTelegramMessage(
   }
 
   return { ok: false, status: 0, error: "Telegram retry loop exhausted" };
+}
+
+export async function sendTelegramMarkdownMessage(
+  markdown: string,
+  fetchImpl: typeof fetch = fetch,
+  options: TelegramMessageOptions = {},
+): Promise<TelegramResult> {
+  return await sendTelegramMessage(markdown, fetchImpl, {
+    ...options,
+    parseMode: "MarkdownV2",
+  });
 }
 
 function sleep(ms: number) {
@@ -152,34 +165,68 @@ export function formatTelegramSignal(signal: {
   modelNames?: string[];
   alertKind?: "model_release" | "major_incident";
   isTest?: boolean;
+  systemCard?: {
+    status: "linked" | "not_linked" | "unavailable";
+    url?: string;
+    label?: string;
+  };
 }) {
   const isIncident = signal.alertKind === "major_incident";
   const title = cleanAlertText(signal.title);
   const summary = makeSignalSummary({ ...signal, title, isIncident });
-  const modelNames = displayModelNames(signal.provider, signal.modelNames ?? []);
+  const modelNames = displayModelNames(
+    signal.provider,
+    signal.modelNames ?? [],
+    `${title} ${signal.summary ?? ""}`,
+  );
   const prefix = signal.isTest
-    ? `TEST - ${isIncident ? "major model incident" : "model release"}`
+    ? `TEST: ${isIncident ? "Major model incident" : "Model release"}`
     : isIncident
       ? "Major model incident"
       : "Model release";
   const lines = [
-    `${prefix}`,
-    `Lab: ${signal.provider}`,
-    `${isIncident ? "Incident" : "Release"}: ${title}`,
-    `Summary: ${summary}`,
+    `*${prefix}*`,
+    `*Lab:* ${escapeTelegramMarkdownV2(signal.provider)}`,
+    `*${isIncident ? "Incident" : "Release"}:* ${escapeTelegramMarkdownV2(title)}`,
+    `*Summary:* ${escapeTelegramMarkdownV2(summary)}`,
   ];
 
   if (modelNames.length > 0) {
-    lines.push(`Models: ${modelNames.slice(0, 5).join(", ")}`);
+    lines.push(`*Models:* ${escapeTelegramMarkdownV2(modelNames.slice(0, 5).join(", "))}`);
   }
 
-  lines.push(`Source: ${signal.sourceLabel}`);
+  lines.push(formatSystemCardLine(signal.systemCard));
+  lines.push(`*Source:* ${escapeTelegramMarkdownV2(signal.sourceLabel)}`);
 
   if (signal.url) {
-    lines.push(`Link: ${signal.url}`);
+    lines.push(telegramMarkdownLink("Official announcement", signal.url));
   }
 
   return lines.join("\n").slice(0, 4096);
+}
+
+function formatSystemCardLine(systemCard: {
+  status: "linked" | "not_linked" | "unavailable";
+  url?: string;
+  label?: string;
+} | undefined): string {
+  if (!systemCard || systemCard.status === "unavailable") {
+    return "*System card:* Check unavailable";
+  }
+  if (systemCard.status === "not_linked" || !systemCard.url) {
+    return "*System card:* Not linked in the announcement";
+  }
+
+  return `*System card:* ${telegramMarkdownLink(systemCard.label ?? "Linked evidence", systemCard.url)}`;
+}
+
+export function escapeTelegramMarkdownV2(value: string): string {
+  return value.replace(/([_\*\[\]\(\)~`>#+\-=|{}.!\\])/g, "\\$1");
+}
+
+function telegramMarkdownLink(label: string, url: string): string {
+  const escapedUrl = url.replace(/([\\)])/g, "\\$1");
+  return `[${escapeTelegramMarkdownV2(label)}](${escapedUrl})`;
 }
 
 function cleanAlertText(value: string): string {
@@ -198,7 +245,11 @@ function makeSignalSummary(signal: {
     return truncateSentence(cleanedSummary, 320);
   }
 
-  const modelNames = displayModelNames(signal.provider, signal.modelNames ?? []);
+  const modelNames = displayModelNames(
+    signal.provider,
+    signal.modelNames ?? [],
+    `${signal.title} ${signal.summary ?? ""}`,
+  );
   if (signal.isIncident) {
     return `Official ${signal.provider} post about a model or API reliability issue that may affect users.`;
   }
@@ -226,9 +277,13 @@ function cleanFeedSummary(value: string): string {
     .trim();
 }
 
-function displayModelNames(provider: string, names: string[]): string[] {
-  const filtered = filterModelNamesForLab(provider, names);
-  const numberedNames = names.filter((name) => {
+function displayModelNames(provider: string, names: string[], context?: string): string[] {
+  const mentionedNames = context
+    ? names.filter((name) => isExactMention(name, context))
+    : names;
+  const candidates = removeTruncatedModelPrefixes(mentionedNames.length > 0 ? mentionedNames : names);
+  const filtered = filterModelNamesForLab(provider, candidates);
+  const numberedNames = candidates.filter((name) => {
     return /\d/.test(name) && filterModelNamesForLab(provider, [name]).length > 0;
   });
   const seen = new Set<string>();
@@ -238,5 +293,22 @@ function displayModelNames(provider: string, names: string[]): string[] {
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
+  });
+}
+
+function isExactMention(name: string, context: string): boolean {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`${escapedName}(?![a-z0-9])`, "i").test(context);
+}
+
+function removeTruncatedModelPrefixes(names: string[]): string[] {
+  return names.filter((name) => {
+    const normalized = name.toLowerCase();
+    return !names.some((other) => {
+      const otherNormalized = other.toLowerCase();
+      return otherNormalized !== normalized &&
+        otherNormalized.startsWith(normalized) &&
+        !otherNormalized.startsWith(`${normalized}-`);
+    });
   });
 }
