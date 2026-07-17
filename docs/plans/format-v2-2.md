@@ -78,22 +78,34 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
 
 ### Task 2: AI Release Classifier
 
-- [ ] `src/lib/radar/llm.ts`: add `release_classifier` to `LlmRole` and
+- [x] `src/lib/radar/llm.ts`: add `release_classifier` to `LlmRole` and
       `DEEPSEEK_ROLES`.
-- [ ] New classifier stage (new module or in `agents.ts`): input = title + first
+- [x] New classifier stage (new module or in `agents.ts`): input = title + first
       ~2000 chars of extracted article text; output = strict JSON
       `{is_new_model_release: boolean, model_names: string[], reason: string}`.
       Definition: a new model or new model version becoming available. Feature
       launches, partnerships, pricing changes, research posts, region/availability
       announcements are NOT releases. Parse defensively; on malformed output retry
       once, then treat as not-a-release.
-- [ ] Wire into the pipeline after article fetch, before evidence gathering.
+      (implemented in new module `src/lib/radar/classifier.ts` —
+      `runReleaseClassifier`.)
+- [x] Wire into the pipeline after article fetch, before evidence gathering.
       Rejected candidates are marked `rejected` with the classifier reason in
       `gateResult.reasons`; they never notify. The existing regex gate stays as
       cheap prefilter only.
-- [ ] Tests: classifier prompt/parse unit tests with faked LLM responses (accept,
+      (wired as Step 0 of `runAgentOrchestration` in `agents.ts`, before the
+      researcher/summarizer/writer stages; rejected candidates short-circuit with
+      `OrchestratorResult.rejected = true` and the classifier reason surfaced in
+      `verifierOutput.findings` — this is the in-process equivalent of
+      `gateResult.reasons` for the orchestration layer. `articleGate.ts`'s regex
+      gate is untouched and still runs first, at the source-polling layer in
+      `convex/polling.ts`, as the cheap prefilter before this AI classifier ever
+      runs.)
+- [x] Tests: classifier prompt/parse unit tests with faked LLM responses (accept,
       reject, malformed); pipeline test proving a non-release never reaches the
       writer.
+      (`tests/classifier.test.ts` and the "release classifier gate" describe
+      block in `tests/agents.test.ts`.)
 
 ### Task 3: AA Leaderboard And Placements
 

@@ -10,6 +10,7 @@ export const DEFAULT_KIMI_MODEL = "moonshotai/kimi-k2";
 // --- LLM Roles ---
 
 export type LlmRole =
+  | "release_classifier"
   | "article_summarizer"
   | "system_card_summarizer"
   | "benchmark_aggregator"
@@ -18,6 +19,7 @@ export type LlmRole =
 
 // DeepSeek handles all stages except final message writing
 export const DEEPSEEK_ROLES = new Set<LlmRole>([
+  "release_classifier",
   "article_summarizer",
   "system_card_summarizer",
   "benchmark_aggregator",
@@ -262,6 +264,15 @@ export async function callOpenAICompatible(
 type FakeResponseDef = { text: string; promptTokens: number; completionTokens: number };
 
 const FAKE_RESPONSES: Record<LlmRole, FakeResponseDef> = {
+  release_classifier: {
+    text: JSON.stringify({
+      is_new_model_release: true,
+      model_names: ["FAKE_MODEL"],
+      reason: "FAKE_CLASSIFIER: deterministic fake release classification for offline testing.",
+    }),
+    promptTokens: 256,
+    completionTokens: 32,
+  },
   article_summarizer: {
     text: "FAKE_ARTICLE_SUMMARY: Deterministic fake article summary for offline testing.",
     promptTokens: 512,

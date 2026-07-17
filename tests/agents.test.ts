@@ -789,6 +789,86 @@ describe("runAgentOrchestration – offline", () => {
   });
 });
 
+// ─── Release classifier gate: non-releases never reach the writer ───────────
+
+describe("runAgentOrchestration – release classifier gate", () => {
+  function makeRejectingRouter(): { router: LlmRouter; calls: LlmRole[] } {
+    const calls: LlmRole[] = [];
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role) {
+        calls.push(role);
+        if (role === "release_classifier") {
+          return makeFakeLlmCompletion(role, {
+            text: JSON.stringify({
+              is_new_model_release: false,
+              model_names: [],
+              reason: "This is a pricing update, not a new model release.",
+            }),
+          });
+        }
+        return makeFakeLlmCompletion(role);
+      },
+    };
+    return { router, calls };
+  }
+
+  it("never calls the final writer (or any evidence-gathering stage) for a rejected candidate", async () => {
+    const { router, calls } = makeRejectingRouter();
+    const tracker = new CostTracker(10);
+
+    const result = await runAgentOrchestration(
+      "https://api-docs.deepseek.com/news/news260424",
+      makeArticle({ title: "DeepSeek pricing update" }),
+      makeSystemCardResult(),
+      makeBenchmarkEvidence(),
+      { router, tracker },
+    );
+
+    expect(result.rejected).toBe(true);
+    expect(result.approved).toBe(false);
+    expect(result.classifierOutput.is_new_model_release).toBe(false);
+    expect(calls).toEqual(["release_classifier"]);
+    expect(calls).not.toContain("final_writer");
+    expect(calls).not.toContain("article_summarizer");
+  });
+
+  it("marks the rejection reason in the verifier findings", async () => {
+    const { router } = makeRejectingRouter();
+    const result = await runAgentOrchestration(
+      "https://api-docs.deepseek.com/news/news260424",
+      makeArticle(),
+      makeSystemCardResult(),
+      makeBenchmarkEvidence(),
+      { router, tracker: new CostTracker(10) },
+    );
+
+    expect(result.verifierOutput.findings.some((f) => f.claim.includes("pricing update"))).toBe(true);
+  });
+
+  it("proceeds through the full pipeline (including the writer) when the classifier accepts", async () => {
+    const calls: LlmRole[] = [];
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role) {
+        calls.push(role);
+        return makeFakeLlmCompletion(role);
+      },
+    };
+
+    const result = await runAgentOrchestration(
+      "https://api-docs.deepseek.com/news/news260424",
+      makeArticle(),
+      makeSystemCardResult(),
+      makeBenchmarkEvidence(),
+      { router, tracker: new CostTracker(10) },
+    );
+
+    expect(result.rejected).toBe(false);
+    expect(calls).toContain("final_writer");
+  });
+});
+
 // ─── Key constraint: final writer cannot receive fetch tools ─────────────────
 
 describe("Agent architecture constraints", () => {

@@ -5,6 +5,7 @@ import type { LlmRouter } from "./llm";
 import { completeWithBudget, CostTracker } from "./llm";
 import { extractModelNames, filterModelNamesForLab } from "./text";
 import { identifyProviderForUrl } from "./articleGate";
+import { runReleaseClassifier, type ReleaseClassifierOutput } from "./classifier";
 
 // ─── Evidence packet ─────────────────────────────────────────────────────────
 // A sealed, read-only bundle of already-fetched/extracted material that the
@@ -797,7 +798,32 @@ export type OrchestratorResult = {
   finalMessage: string;
   verifierOutput: VerifierOutput;
   approved: boolean;
+  rejected: boolean;
+  classifierOutput: ReleaseClassifierOutput;
 };
+
+function buildRejectedEvidencePacket(
+  articleUrl: string,
+  article: ExtractedArticle,
+  classifierOutput: ReleaseClassifierOutput,
+  tracker: CostTracker,
+): EvidencePacket {
+  const lab = extractLabFromUrl(article.finalUrl);
+  return {
+    lab,
+    modelNames: classifierOutput.model_names,
+    articleUrl,
+    releaseDate: extractReleaseDateFromArticle(article),
+    articleSummary: "",
+    systemCardSummary: "",
+    benchmarkSummary: "",
+    evidenceSynthesis: "",
+    claims: [],
+    systemCardStatus: "not_found",
+    references: [{ url: article.canonicalUrl ?? article.finalUrl, kind: "article", chunkIds: [] }],
+    costTracker: tracker,
+  };
+}
 
 export async function runAgentOrchestration(
   articleUrl: string,
@@ -807,6 +833,41 @@ export async function runAgentOrchestration(
   options: OrchestratorOptions,
 ): Promise<OrchestratorResult> {
   const { router, tracker } = options;
+
+  // Step 0: AI release classifier — runs before any evidence gathering so
+  // non-releases (feature launches, partnerships, pricing changes, research
+  // posts, availability announcements) never reach the summarizers or writer.
+  const classifierOutput = await runReleaseClassifier(
+    { title: article.title, articleText: article.body ?? "" },
+    router,
+    tracker,
+  );
+
+  if (!classifierOutput.is_new_model_release) {
+    const evidencePacket = buildRejectedEvidencePacket(articleUrl, article, classifierOutput, tracker);
+    const verifierOutput: VerifierOutput = {
+      approved: false,
+      findings: [
+        {
+          claim: classifierOutput.reason,
+          issue: "other",
+          detail: `Release classifier rejected this candidate: ${classifierOutput.reason}`,
+          severity: "block",
+        },
+      ],
+      checkedClaims: 0,
+      unsupportedCount: 1,
+    };
+
+    return {
+      evidencePacket,
+      finalMessage: "",
+      verifierOutput,
+      approved: false,
+      rejected: true,
+      classifierOutput,
+    };
+  }
 
   // Step 1: Researcher collects and structures raw inputs
   const researcherOutput = await runResearcher({
@@ -907,5 +968,7 @@ export async function runAgentOrchestration(
     finalMessage: finalWriterOutput.message,
     verifierOutput,
     approved: verifierOutput.approved,
+    rejected: false,
+    classifierOutput,
   };
 }
