@@ -109,17 +109,25 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
 
 ### Task 3: AA Leaderboard And Placements
 
-- [ ] `src/lib/radar/benchmarks.ts`: add `fetchAALeaderboard()` keeping ALL models
+- [x] `src/lib/radar/benchmarks.ts`: add `fetchAALeaderboard()` keeping ALL models
       from the AA response (per Task 1's actual shape): per model — capability
       index scores, DeepSWE if present, reasoning-effort variant, input/output
       pricing.
-- [ ] Add pure `computePlacements(leaderboard, modelNames)` returning per index:
+      (uses the real `/api/v2/data/llms/models` endpoint + `x-api-key` header
+      confirmed in Task 1's live probe, not the stale `/api/models` +
+      `Authorization: Bearer` the old `queryArtificialAnalysis` used. DeepSWE is
+      never read from a guessed field — per Task 1's notes it is not a
+      documented AA field, so every entry gets `deepswe: null`, which
+      `computePlacements` turns into the mandatory "not_tested" fallback.)
+- [x] Add pure `computePlacements(leaderboard, modelNames)` returning per index:
       all tested effort levels with score + rank, `n`, best rank, higher/lower
       neighbors (with their effort labels), `isTop` flag; DeepSWE same shape or
       `"not_tested"`; plus pricing comparison vs both neighbors and the lab's own
       flagship.
-- [ ] Unit tests against `tests/fixtures/aa-models.json` covering: multi-level
+- [x] Unit tests against `tests/fixtures/aa-models.json` covering: multi-level
       model, single-level model, #1 model, model absent from AA, DeepSWE absent.
+      (`tests/benchmarks.test.ts`, new `fetchAALeaderboard` and
+      `computePlacements` describe blocks.)
 
 ### Task 4: Prompts And Two-Message Writer
 

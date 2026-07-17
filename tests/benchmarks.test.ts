@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   extractBenchmarkClaims,
@@ -6,8 +8,11 @@ import {
   resolveClaimStatuses,
   aggregateBenchmarkEvidence,
   getLabModalities,
+  fetchAALeaderboard,
+  computePlacements,
   type BenchmarkClaim,
   type ArtificialAnalysisRow,
+  type AALeaderboard,
 } from "../src/lib/radar/benchmarks";
 import type { EvidenceChunk } from "../src/lib/radar/systemCards";
 
@@ -600,5 +605,135 @@ describe("aggregateBenchmarkEvidence – full integration", () => {
 
     const mmluClaims = evidence.claims.filter((c) => c.name === "MMLU");
     expect(mmluClaims.length).toBeLessThanOrEqual(2); // at most one per source type
+  });
+});
+
+// --- fetchAALeaderboard / computePlacements (Task 3) ---
+
+const aaModelsFixture = JSON.parse(readFileSync(resolve(__dirname, "fixtures/aa-models.json"), "utf8"));
+
+async function loadFixtureLeaderboard(): Promise<AALeaderboard> {
+  const fetchImpl = makeAAFetch(aaModelsFixture);
+  const result = await fetchAALeaderboard({ apiKey: "test-key", fetchImpl });
+  if (!result.ok) throw new Error("expected fixture leaderboard fetch to succeed");
+  return result.leaderboard;
+}
+
+describe("fetchAALeaderboard", () => {
+  it("returns skipped when no API key is configured", async () => {
+    const result = await fetchAALeaderboard({});
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe("skipped");
+      expect(result.missingKey).toBe(true);
+    }
+  });
+
+  it("parses every fixture row, splitting effort-suffixed names from the base name", async () => {
+    const leaderboard = await loadFixtureLeaderboard();
+    expect(leaderboard.entries).toHaveLength(aaModelsFixture.data.length);
+
+    const o3High = leaderboard.entries.find((e) => e.slug === "o3-high");
+    expect(o3High?.baseName).toBe("o3");
+    expect(o3High?.effort).toBe("high");
+    expect(o3High?.deepswe).toBeNull();
+    expect(o3High?.pricing).toEqual({ inputPerMtok: 2.0, outputPerMtok: 8.0, blendedPerMtok: 4.4 });
+
+    const opus = leaderboard.entries.find((e) => e.slug === "claude-opus-4-8");
+    expect(opus?.baseName).toBe("Claude Opus 4.8");
+    expect(opus?.effort).toBeNull();
+    expect(opus?.labName).toBe("Anthropic");
+    expect(opus?.labSlug).toBe("anthropic");
+  });
+
+  it("authenticates with x-api-key, not Authorization: Bearer", async () => {
+    const fetchImpl = makeAAFetch(aaModelsFixture);
+    await fetchAALeaderboard({ apiKey: "test-key", fetchImpl });
+    const headers = fetchImpl.mock.calls[0]?.[1]?.headers as Record<string, string>;
+    expect(headers["x-api-key"]).toBe("test-key");
+    expect(headers["Authorization"]).toBeUndefined();
+  });
+
+  it("propagates rate limiting", async () => {
+    const fetchImpl = makeAAFetch({}, { status: 429 });
+    const result = await fetchAALeaderboard({ apiKey: "test-key", fetchImpl });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe("rate_limited");
+  });
+});
+
+describe("computePlacements", () => {
+  it("computes rank, levels, and neighbors for a multi-level model", async () => {
+    const leaderboard = await loadFixtureLeaderboard();
+    const placements = computePlacements(leaderboard, ["o3"]);
+    expect(placements.onAA).toBe(true);
+
+    const intelligence = placements.indices.find((p) => p.index === "intelligence");
+    expect(intelligence?.levels).toHaveLength(2);
+
+    const high = intelligence?.levels.find((l) => l.effort === "high");
+    const low = intelligence?.levels.find((l) => l.effort === "low");
+    expect(high).toEqual({ effort: "high", score: 68.1, rank: 2 });
+    expect(low).toEqual({ effort: "low", score: 58.3, rank: 6 });
+    expect(intelligence?.n).toBe(8);
+    expect(intelligence?.bestRank).toBe(2);
+    expect(intelligence?.isTop).toBe(false);
+    expect(intelligence?.higherNeighbor).toEqual({ name: "Claude Opus 4.8", effort: null, score: 72.4, rank: 1 });
+    expect(intelligence?.lowerNeighbor).toEqual({ name: "Grok 5", effort: null, score: 66.0, rank: 3 });
+  });
+
+  it("computes a single reasoning level for a single-level model", async () => {
+    const leaderboard = await loadFixtureLeaderboard();
+    const placements = computePlacements(leaderboard, ["GPT-5.2 mini"]);
+    const intelligence = placements.indices.find((p) => p.index === "intelligence");
+    expect(intelligence?.levels).toHaveLength(1);
+    expect(intelligence?.levels[0]).toEqual({ effort: null, score: 63.7, rank: 4 });
+    expect(intelligence?.n).toBe(8);
+  });
+
+  it("marks a #1 model as top on every index with no higher neighbor", async () => {
+    const leaderboard = await loadFixtureLeaderboard();
+    const placements = computePlacements(leaderboard, ["Claude Opus 4.8"]);
+    expect(placements.indices.length).toBeGreaterThan(0);
+    for (const index of placements.indices) {
+      expect(index.bestRank).toBe(1);
+      expect(index.isTop).toBe(true);
+      expect(index.higherNeighbor).toBeNull();
+      expect(index.lowerNeighbor).not.toBeNull();
+    }
+  });
+
+  it("reports onAA=false and no index placements for a model absent from AA", async () => {
+    const leaderboard = await loadFixtureLeaderboard();
+    const placements = computePlacements(leaderboard, ["Nonexistent Model Z"]);
+    expect(placements.onAA).toBe(false);
+    expect(placements.indices).toHaveLength(0);
+    expect(placements.deepswe).toEqual({ status: "not_tested" });
+    expect(placements.pricing.model).toBeNull();
+  });
+
+  it("always falls back to not_tested for DeepSWE, since it is not a documented AA field", async () => {
+    const leaderboard = await loadFixtureLeaderboard();
+    const placements = computePlacements(leaderboard, ["o3"]);
+    expect(placements.deepswe).toEqual({ status: "not_tested" });
+  });
+
+  it("computes a pricing comparison against neighbors and the lab flagship", async () => {
+    const leaderboard = await loadFixtureLeaderboard();
+    const placements = computePlacements(leaderboard, ["o3"]);
+    // Primary entry is o3 (high) — the effort level backing the best intelligence rank.
+    expect(placements.pricing.model).toEqual({ inputPerMtok: 2.0, outputPerMtok: 8.0, blendedPerMtok: 4.4 });
+    expect(placements.pricing.vsHigherNeighbor).toEqual({ cheaper: true, deltaBlended: 4.6 });
+    expect(placements.pricing.vsFlagship).toEqual({
+      cheaper: false,
+      deltaBlended: -3.2,
+      flagshipName: "GPT-5.2 mini",
+    });
+  });
+
+  it("has no flagship comparison when the lab has only one model on the leaderboard", async () => {
+    const leaderboard = await loadFixtureLeaderboard();
+    const placements = computePlacements(leaderboard, ["Claude Opus 4.8"]);
+    expect(placements.pricing.vsFlagship).toBeNull();
   });
 });

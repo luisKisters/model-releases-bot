@@ -421,6 +421,357 @@ export async function queryArtificialAnalysis(
   };
 }
 
+// --- AA leaderboard and placements (Task 3) ---
+
+export type AACapabilityIndex = "intelligence" | "coding" | "math" | "agentic";
+
+const AA_CAPABILITY_INDICES: AACapabilityIndex[] = ["intelligence", "coding", "math", "agentic"];
+
+const AA_INDEX_EVAL_FIELDS: Record<AACapabilityIndex, string> = {
+  intelligence: "artificial_analysis_intelligence_index",
+  coding: "artificial_analysis_coding_index",
+  math: "artificial_analysis_math_index",
+  agentic: "artificial_analysis_agentic_index",
+};
+
+const AA_LEADERBOARD_PATH = "/api/v2/data/llms/models";
+
+export type AALeaderboardPricing = {
+  inputPerMtok: number | null;
+  outputPerMtok: number | null;
+  blendedPerMtok: number | null;
+};
+
+export type AALeaderboardEntry = {
+  id: string;
+  name: string;
+  slug: string;
+  baseName: string;
+  effort: string | null;
+  labName: string;
+  labSlug: string;
+  scores: Partial<Record<AACapabilityIndex, number>>;
+  // DeepSWE is not a documented Artificial Analysis field (confirmed absent during
+  // Task 1's probe — see docs/plans/format-v2-2-notes.md). Never read a guessed
+  // field name here; this always stays null so downstream placements fall
+  // through to the spec's mandatory "not yet tested" line.
+  deepswe: number | null;
+  pricing: AALeaderboardPricing;
+};
+
+export type AALeaderboard = {
+  entries: AALeaderboardEntry[];
+};
+
+export type AALeaderboardResult =
+  | { ok: true; leaderboard: AALeaderboard }
+  | {
+      ok: false;
+      status: "skipped" | "rate_limited" | "error";
+      reason: string;
+      missingKey?: boolean;
+    };
+
+const EFFORT_SUFFIX_PATTERN = /^(.*?)\s*\((high|medium|low)\)\s*$/i;
+
+function splitNameAndEffort(name: string): { baseName: string; effort: string | null } {
+  const match = name.match(EFFORT_SUFFIX_PATTERN);
+  if (!match) return { baseName: name.trim(), effort: null };
+  return { baseName: match[1].trim(), effort: match[2].toLowerCase() };
+}
+
+function normalizeAALeaderboardEntry(raw: Record<string, unknown>): AALeaderboardEntry | null {
+  const name = typeof raw["name"] === "string" ? raw["name"] : null;
+  const slug = typeof raw["slug"] === "string" ? raw["slug"] : null;
+  if (!name || !slug) return null;
+
+  const { baseName, effort } = splitNameAndEffort(name);
+
+  const creator = raw["model_creator"] as Record<string, unknown> | undefined;
+  const labName = creator && typeof creator["name"] === "string" ? creator["name"] : "Unknown";
+  const labSlug = creator && typeof creator["slug"] === "string" ? creator["slug"] : "unknown";
+
+  const evaluations = (raw["evaluations"] as Record<string, unknown>) ?? {};
+  const scores: Partial<Record<AACapabilityIndex, number>> = {};
+  for (const index of AA_CAPABILITY_INDICES) {
+    const value = evaluations[AA_INDEX_EVAL_FIELDS[index]];
+    if (typeof value === "number") scores[index] = value;
+  }
+
+  const pricing = (raw["pricing"] as Record<string, unknown>) ?? {};
+  const inputPerMtok = typeof pricing["price_1m_input_tokens"] === "number" ? pricing["price_1m_input_tokens"] : null;
+  const outputPerMtok =
+    typeof pricing["price_1m_output_tokens"] === "number" ? pricing["price_1m_output_tokens"] : null;
+  const blendedPerMtok =
+    typeof pricing["price_1m_blended_3_to_1"] === "number" ? pricing["price_1m_blended_3_to_1"] : null;
+
+  return {
+    id: typeof raw["id"] === "string" ? raw["id"] : slug,
+    name,
+    slug,
+    baseName,
+    effort,
+    labName,
+    labSlug,
+    scores,
+    deepswe: null,
+    pricing: { inputPerMtok, outputPerMtok, blendedPerMtok },
+  };
+}
+
+export async function fetchAALeaderboard(options: BenchmarkOptions = {}): Promise<AALeaderboardResult> {
+  const { apiKey, fetchImpl = fetch, timeoutMs = 15_000 } = options;
+
+  if (!apiKey) {
+    return {
+      ok: false,
+      status: "skipped",
+      reason: "ARTIFICIAL_ANALYSIS_API_KEY not configured — skipping Artificial Analysis leaderboard fetch",
+      missingKey: true,
+    };
+  }
+
+  const url = `${AA_BASE_URL}${AA_LEADERBOARD_PATH}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetchImpl(url, {
+      signal: controller.signal,
+      headers: {
+        "x-api-key": apiKey,
+        Accept: "application/json",
+        "User-Agent": "model-release-radar/0.1",
+      },
+    });
+    clearTimeout(timer);
+
+    if (response.status === 429) {
+      return { ok: false, status: "rate_limited", reason: "Artificial Analysis leaderboard API rate limited" };
+    }
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: "error",
+        reason: `Artificial Analysis leaderboard API returned ${response.status}`,
+      };
+    }
+
+    const data = (await response.json()) as unknown;
+    const rawRows: Record<string, unknown>[] =
+      data && typeof data === "object" && Array.isArray((data as Record<string, unknown>)["data"])
+        ? ((data as Record<string, unknown>)["data"] as Record<string, unknown>[])
+        : [];
+
+    const entries: AALeaderboardEntry[] = [];
+    for (const raw of rawRows) {
+      const entry = normalizeAALeaderboardEntry(raw);
+      if (entry) entries.push(entry);
+    }
+
+    return { ok: true, leaderboard: { entries } };
+  } catch (err) {
+    clearTimeout(timer);
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("abort") || msg.includes("timeout")) {
+      return { ok: false, status: "error", reason: "Artificial Analysis leaderboard API timed out" };
+    }
+    return { ok: false, status: "error", reason: `Artificial Analysis leaderboard API fetch failed: ${msg}` };
+  }
+}
+
+// --- computePlacements ---
+
+export type PlacementLevel = {
+  effort: string | null;
+  score: number;
+  rank: number;
+};
+
+export type NeighborPlacement = {
+  name: string;
+  effort: string | null;
+  score: number;
+  rank: number;
+};
+
+export type IndexPlacement = {
+  index: AACapabilityIndex;
+  levels: PlacementLevel[];
+  n: number;
+  bestRank: number;
+  higherNeighbor: NeighborPlacement | null;
+  lowerNeighbor: NeighborPlacement | null;
+  isTop: boolean;
+};
+
+export type DeepswePlacement = ({ status: "tested" } & Omit<IndexPlacement, "index">) | { status: "not_tested" };
+
+export type PricingDelta = { cheaper: boolean; deltaBlended: number };
+
+export type PricingComparison = {
+  model: AALeaderboardPricing | null;
+  vsHigherNeighbor: PricingDelta | null;
+  vsLowerNeighbor: PricingDelta | null;
+  vsFlagship: (PricingDelta & { flagshipName: string }) | null;
+};
+
+export type ModelPlacements = {
+  modelNames: string[];
+  onAA: boolean;
+  indices: IndexPlacement[];
+  deepswe: DeepswePlacement;
+  pricing: PricingComparison;
+};
+
+function entryMatchesModelNames(entry: AALeaderboardEntry, modelNames: string[]): boolean {
+  const baseLower = entry.baseName.toLowerCase();
+  return modelNames.some((name) => {
+    const nameLower = name.toLowerCase().trim();
+    if (!nameLower) return false;
+    return baseLower === nameLower || baseLower.includes(nameLower) || nameLower.includes(baseLower);
+  });
+}
+
+type ScoredPlacement = Omit<IndexPlacement, "index"> | null;
+
+function computeScoredPlacement(
+  entries: AALeaderboardEntry[],
+  modelNames: string[],
+  getScore: (entry: AALeaderboardEntry) => number | null,
+): ScoredPlacement {
+  const scored = entries
+    .map((entry) => ({ entry, score: getScore(entry) }))
+    .filter((s): s is { entry: AALeaderboardEntry; score: number } => typeof s.score === "number");
+
+  scored.sort((a, b) => b.score - a.score);
+  const ranked = scored.map((s, i) => ({ ...s, rank: i + 1 }));
+
+  const ownRanked = ranked.filter((r) => entryMatchesModelNames(r.entry, modelNames));
+  if (ownRanked.length === 0) return null;
+
+  const levels: PlacementLevel[] = ownRanked.map((r) => ({
+    effort: r.entry.effort,
+    score: r.score,
+    rank: r.rank,
+  }));
+  const bestRank = Math.min(...levels.map((l) => l.rank));
+  const bestIndex = ranked.findIndex((r) => r.rank === bestRank);
+
+  let higherNeighbor: NeighborPlacement | null = null;
+  for (let i = bestIndex - 1; i >= 0; i--) {
+    if (!entryMatchesModelNames(ranked[i].entry, modelNames)) {
+      higherNeighbor = {
+        name: ranked[i].entry.baseName,
+        effort: ranked[i].entry.effort,
+        score: ranked[i].score,
+        rank: ranked[i].rank,
+      };
+      break;
+    }
+  }
+
+  let lowerNeighbor: NeighborPlacement | null = null;
+  for (let i = bestIndex + 1; i < ranked.length; i++) {
+    if (!entryMatchesModelNames(ranked[i].entry, modelNames)) {
+      lowerNeighbor = {
+        name: ranked[i].entry.baseName,
+        effort: ranked[i].entry.effort,
+        score: ranked[i].score,
+        rank: ranked[i].rank,
+      };
+      break;
+    }
+  }
+
+  return { levels, n: ranked.length, bestRank, higherNeighbor, lowerNeighbor, isTop: bestRank === 1 };
+}
+
+function comparePricing(model: AALeaderboardPricing, other: AALeaderboardPricing | null): PricingDelta | null {
+  if (!other || model.blendedPerMtok === null || other.blendedPerMtok === null) return null;
+  const deltaBlended = other.blendedPerMtok - model.blendedPerMtok;
+  return { cheaper: deltaBlended > 0, deltaBlended };
+}
+
+function findLabFlagship(
+  entries: AALeaderboardEntry[],
+  ownEntry: AALeaderboardEntry,
+  modelNames: string[],
+): AALeaderboardEntry | null {
+  const labPeers = entries.filter(
+    (e) => e.labSlug === ownEntry.labSlug && !entryMatchesModelNames(e, modelNames),
+  );
+  if (labPeers.length === 0) return null;
+  return labPeers.reduce((best, e) => {
+    const bestScore = best.scores.intelligence ?? -Infinity;
+    const score = e.scores.intelligence ?? -Infinity;
+    return score > bestScore ? e : best;
+  }, labPeers[0]);
+}
+
+function computePricingComparison(
+  entries: AALeaderboardEntry[],
+  modelNames: string[],
+  indices: IndexPlacement[],
+): PricingComparison {
+  const ownEntries = entries.filter((e) => entryMatchesModelNames(e, modelNames));
+  if (ownEntries.length === 0) {
+    return { model: null, vsHigherNeighbor: null, vsLowerNeighbor: null, vsFlagship: null };
+  }
+
+  const primaryIndex = indices.find((p) => p.index === "intelligence") ?? indices[0];
+  let primaryEntry: AALeaderboardEntry = ownEntries[0];
+  if (primaryIndex) {
+    const bestLevel = primaryIndex.levels.find((l) => l.rank === primaryIndex.bestRank);
+    const match = ownEntries.find((e) => e.effort === (bestLevel?.effort ?? null));
+    if (match) primaryEntry = match;
+  }
+
+  const model = primaryEntry.pricing;
+
+  const higherNeighborEntry = primaryIndex?.higherNeighbor
+    ? entries.find(
+        (e) => e.baseName === primaryIndex.higherNeighbor!.name && e.effort === primaryIndex.higherNeighbor!.effort,
+      )
+    : undefined;
+  const lowerNeighborEntry = primaryIndex?.lowerNeighbor
+    ? entries.find(
+        (e) => e.baseName === primaryIndex.lowerNeighbor!.name && e.effort === primaryIndex.lowerNeighbor!.effort,
+      )
+    : undefined;
+
+  const flagshipEntry = findLabFlagship(entries, primaryEntry, modelNames);
+  const flagshipDelta = flagshipEntry ? comparePricing(model, flagshipEntry.pricing) : null;
+
+  return {
+    model,
+    vsHigherNeighbor: higherNeighborEntry ? comparePricing(model, higherNeighborEntry.pricing) : null,
+    vsLowerNeighbor: lowerNeighborEntry ? comparePricing(model, lowerNeighborEntry.pricing) : null,
+    vsFlagship: flagshipEntry && flagshipDelta ? { ...flagshipDelta, flagshipName: flagshipEntry.baseName } : null,
+  };
+}
+
+export function computePlacements(leaderboard: AALeaderboard, modelNames: string[]): ModelPlacements {
+  const entries = leaderboard.entries;
+
+  const indices: IndexPlacement[] = [];
+  for (const index of AA_CAPABILITY_INDICES) {
+    const placement = computeScoredPlacement(entries, modelNames, (e) => e.scores[index] ?? null);
+    if (placement) indices.push({ index, ...placement });
+  }
+
+  const deepswePlacement = computeScoredPlacement(entries, modelNames, (e) => e.deepswe);
+  const deepswe: DeepswePlacement = deepswePlacement
+    ? { status: "tested", ...deepswePlacement }
+    : { status: "not_tested" };
+
+  const onAA = entries.some((e) => entryMatchesModelNames(e, modelNames));
+  const pricing = computePricingComparison(entries, modelNames, indices);
+
+  return { modelNames, onAA, indices, deepswe, pricing };
+}
+
 // --- Claim comparison ---
 
 const NUMERIC_TOLERANCE_PERCENT = 2; // 2 percentage points tolerance
