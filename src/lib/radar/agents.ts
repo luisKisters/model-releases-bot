@@ -1,6 +1,14 @@
 import type { ExtractedArticle } from "./types";
 import type { SystemCardResult, EvidenceChunk } from "./systemCards";
-import type { BenchmarkEvidence, BenchmarkClaim } from "./benchmarks";
+import type {
+  BenchmarkEvidence,
+  BenchmarkClaim,
+  ModelPlacements,
+  IndexPlacement,
+  NeighborPlacement,
+  AALeaderboardResult,
+} from "./benchmarks";
+import { computePlacements } from "./benchmarks";
 import type { LlmRouter } from "./llm";
 import { completeWithBudget, CostTracker } from "./llm";
 import { extractModelNames, filterModelNamesForLab } from "./text";
@@ -27,6 +35,19 @@ export type EvidenceReference = {
   chunkIds: string[];
 };
 
+// Availability strings extracted by the article summarizer (v2.2 Facts row).
+// Never null — unresolved fields fall back to the "[placeholder]" placeholder
+// discipline mandated by the writer contract (rule 10).
+export type AvailabilityInfo = {
+  api: string;
+  subscription: string;
+};
+
+export const AVAILABILITY_PLACEHOLDER: AvailabilityInfo = {
+  api: "[placeholder]",
+  subscription: "[placeholder]",
+};
+
 export type EvidencePacket = {
   lab: string;
   modelNames: string[];
@@ -40,6 +61,10 @@ export type EvidencePacket = {
   systemCardStatus: "found" | "not_found";
   references: EvidenceReference[];
   costTracker: CostTracker;
+  // Artificial Analysis leaderboard placement for this release, or null when
+  // no leaderboard was supplied / the model is not on Artificial Analysis.
+  placements: ModelPlacements | null;
+  availability: AvailabilityInfo;
 };
 
 // ─── Role input/output schemas ────────────────────────────────────────────────
@@ -69,6 +94,7 @@ export type ArticleSummarizerInput = {
 
 export type ArticleSummarizerOutput = {
   summary: string;
+  availability: AvailabilityInfo;
 };
 
 export type SystemCardSummarizerInput = {
@@ -98,8 +124,12 @@ export type FinalWriterInput = {
   verifierFeedback?: VerifierFinding[];
 };
 
+// The writer emits two Telegram messages by default (v2.2 §Writer contract
+// rule 1): message1 is the alert card, message2 is the reply deep dive.
+// message1 must always be able to stand alone if message2 is missing.
 export type FinalWriterOutput = {
-  message: string;
+  message1: string;
+  message2: string;
 };
 
 // ─── Verifier types ───────────────────────────────────────────────────────────
@@ -234,6 +264,18 @@ export async function runResearcher(input: ResearcherInput): Promise<ResearcherO
   };
 }
 
+const API_AVAILABILITY_LINE = /API_AVAILABILITY:\s*(.+)/i;
+const SUBSCRIPTION_AVAILABILITY_LINE = /SUBSCRIPTION_AVAILABILITY:\s*(.+)/i;
+
+function extractAvailabilityFromSummary(summaryText: string): AvailabilityInfo {
+  const apiMatch = summaryText.match(API_AVAILABILITY_LINE);
+  const subMatch = summaryText.match(SUBSCRIPTION_AVAILABILITY_LINE);
+  return {
+    api: apiMatch ? apiMatch[1]!.trim() : AVAILABILITY_PLACEHOLDER.api,
+    subscription: subMatch ? subMatch[1]!.trim() : AVAILABILITY_PLACEHOLDER.subscription,
+  };
+}
+
 export async function runArticleSummarizer(
   input: ArticleSummarizerInput,
   router: LlmRouter,
@@ -243,7 +285,11 @@ export async function runArticleSummarizer(
 
   const systemPrompt = `You are an expert AI model release analyst. Summarize the following article about an AI model release from ${lab}.
 Focus on: model names, key capabilities, benchmarks, pricing/availability, and what makes this release notable.
-Be factual and cite only what is explicitly stated in the article. Do not invent facts.`;
+Be factual and cite only what is explicitly stated in the article. Do not invent facts.
+
+After the summary, add two lines, each on its own line, exactly in this form (write "unknown" if the article does not say):
+API_AVAILABILITY: <how/when the model is available via API>
+SUBSCRIPTION_AVAILABILITY: <which consumer/team subscription plans include it>`;
 
   const userPrompt = `Article URL: ${articleUrl}
 Models: ${modelNames.join(", ") || "unknown"}
@@ -251,14 +297,14 @@ Models: ${modelNames.join(", ") || "unknown"}
 Article text:
 ${articleText.slice(0, 6000)}
 
-Provide a concise, factual summary (3-5 paragraphs) of this model release.`;
+Provide a concise, factual summary (3-5 paragraphs) of this model release, followed by the API_AVAILABILITY and SUBSCRIPTION_AVAILABILITY lines.`;
 
   const completion = await completeWithBudget(router, tracker, "article_summarizer", [
     { role: "system", content: systemPrompt },
     { role: "user", content: userPrompt },
   ]);
 
-  return { summary: completion.text };
+  return { summary: completion.text, availability: extractAvailabilityFromSummary(completion.text) };
 }
 
 export async function runSystemCardSummarizer(
@@ -286,10 +332,11 @@ export async function runSystemCardSummarizer(
   const chunksText = allChunks
     .map((c) => `[${c.chunkId} / ${c.topic}]\n${c.text}`)
     .join("\n\n---\n\n")
-    .slice(0, 6000);
+    .slice(0, 12000);
 
   const systemPrompt = `You are an AI safety analyst. Summarize the safety-relevant content from system/model/safety cards and technical reports for ${lab} models.
-Include: safety evaluations, known limitations, misuse risks, safety mitigations, and key benchmarks.
+Prioritize hunting for interesting or idiosyncratic behaviors, not just a checklist: alignment audit results (misaligned-behavior rate vs prior/flagship models), sycophancy, eval-awareness, reward hacking, and any other notable quirks the card calls out.
+Also include: safety evaluations, known limitations, misuse risks, safety mitigations, deployment safeguards (e.g. ASL level, classifiers, monitoring), and key benchmarks.
 Only summarize what is explicitly stated. Mark anything absent as "not found in source material."`;
 
   const userPrompt = `Models: ${modelNames.join(", ") || "unknown"}
@@ -384,41 +431,153 @@ Synthesize all evidence into a structured report with strengths, weaknesses/unkn
   return completion.text;
 }
 
-export async function runFinalWriter(
-  input: FinalWriterInput,
-  router: LlmRouter,
-  tracker: CostTracker,
-): Promise<FinalWriterOutput> {
-  const { evidencePacket } = input;
-  const allowedBenchmarkClaims = formatAllowedBenchmarkClaims(evidencePacket.claims);
-  const verifierFeedback = formatVerifierFeedback(input.verifierFeedback);
+const MESSAGE_2_DELIMITER = "===MESSAGE_2===";
 
-  // The final writer receives only the sealed evidence packet — no fetch/browser tools
-  const systemPrompt = `You are writing a Telegram message announcing an AI model release.
-Write a concise, clear message under 3800 characters that includes:
-- Lab name, model name(s), release date
-- 2-3 bullet points for where it shines
-- Key strengths (cited from evidence)
-- Known weaknesses or unknowns
-- Benchmark context with provenance
-- Safety/system card notes (state explicitly if absent)
-- Source links
+// ─── Final writer: v2.2 two-message templates + 11-rule contract ─────────────
+// Verbatim contract from docs/telegram-message-format-v2.md §Writer contract.
 
-Only include facts that appear in the evidence synthesis. State "Unknown" for missing information.
-Use plain text suitable for Telegram (no markdown). Do not invent capabilities or benchmark scores.
+const FINAL_WRITER_SYSTEM_PROMPT = `You are writing a two-message Telegram announcement for an AI model release, in the exact v2.2 format below. Output BOTH messages, Message 1 first, then a line containing only the literal delimiter ${MESSAGE_2_DELIMITER}, then Message 2. Output nothing else before Message 1 or after Message 2.
+
+MESSAGE 1 — alert card template:
+{lab_emoji} <b>{lab} — {model}</b> <code>{api_id}</code>
+<i>Released {date} · <a href="{announce_url}">Announcement</a></i>
+
+<b>Verdict.</b> {verdict_3to5_sentences} (full breakdown in reply ⤵️)
+
+<b>Facts.</b> Context {context} · Pricing {price_in} in / {price_out} out per Mtok · Open weights: {weights} · API: {api_availability} · Subscription: {subscription_availability} · Focus: {focus}
+
+📊 <b>Benchmarks</b> <i>(Artificial Analysis)</i>
+{benchmark_rows}
+
+🔗 <i>Sources: {sources}</i>
+
+MESSAGE 2 — reply deep dive template:
+↩️ <b>{model} — full breakdown</b>
+
+📝 <b>In-depth summary</b>
+<blockquote expandable>{summary_2to4_paragraphs}</blockquote>
+
+🛡 <b>System card — {card_verdict}</b>
+<blockquote expandable>{card_deep_dive}</blockquote>
+
+Writer contract — follow every rule:
+1. Two messages by default. Message 1 must read completely on its own if the reply is missing.
+2. The verdict is a real conclusion, not a pitch: 3-5 visible sentences stating who beats this model, on which benchmark, at what price; its one genuine edge; one honest system-card plus/caveat (or "no system card published"). Never marketing-neutral, never hedge away the conclusion.
+3. Every comparative claim in the verdict must be backed by a Facts figure or a Benchmarks row in message 1; unverified numbers are flagged [placeholder] in both places.
+4. The verdict ends with the literal pointer "(full breakdown in reply ⤵️)". The in-depth summary and system-card breakdown live only in message 2.
+5. Facts row carries: context, pricing, open weights, API availability (with the <code> model id), subscription availability (which plans), focus. Missing value -> [placeholder].
+6. Unified Benchmarks section: every AA capability index (Intelligence, Coding, Math, Agentic — whatever AA provides) plus a DeepSWE row.
+7. Rank first: "• {Benchmark}: #{rank} of {n} — {levels}; {placement}".
+8. Show all tested reasoning levels, compact ("high 58 (#9) · medium 54 (#13)"); anchor the placement on the best level. Prefix 🥇 and say "highest tested" when it tops a benchmark.
+9. DeepSWE fallback is mandatory: if Artificial Analysis has not run it, emit exactly "• DeepSWE: not yet tested by Artificial Analysis for this model."
+10. Placeholder discipline: every unverified value is wrapped [placeholder] inline — numbers, ranks, neighbors, prices, availability, URLs.
+11. Formatting invariants: Telegram HTML whitelist only (<b> <i> <a> <code> <blockquote expandable>); escape & < > in interpolated text; 4096-char cap per message; labeled sections are never deleted — emit the fallback line instead.
+
+Mandatory fallback lines (never delete a labeled section — emit the fallback line instead):
+- Model not yet listed on Artificial Analysis at all: keep the 📊 label, single line "Not yet listed on Artificial Analysis."
+- An index not reported: "• {Benchmark}: not yet reported by Artificial Analysis for this model."
+- No DeepSWE run: exactly "• DeepSWE: not yet tested by Artificial Analysis for this model."
+- No system card found: the verdict must say so ("no system card published"), and message 2's 🛡 section must use exactly "No system/model card published at launch."
 
 Benchmark guardrails:
-- Named benchmark scores, benchmark names, rankings, and model-vs-model comparisons are allowed only when they appear in "Allowed Benchmark Claims".
-- If "Allowed Benchmark Claims" is "None", do not mention benchmark names, benchmark scores, rankings, SOTA/state-of-the-art, best/top, beats/outperforms/surpasses, trails/rivals, or competitor model names.
-- In that case, say that structured benchmark evidence or independent benchmark verification is unavailable.`;
+- Named benchmark scores, ranks, and model-vs-model comparisons in the Benchmarks section must come only from "Artificial Analysis placement data" below.
+- Named benchmark scores from "Allowed Benchmark Claims" (vendor/system-card claims) may be cited in the verdict or Message 2 deep dive, attributed to their source; never invent a claim absent from either list.
+- If "Allowed Benchmark Claims" is "None" and Artificial Analysis placement data says the model is not yet listed, say that independent benchmark verification is unavailable rather than inventing a comparison.
 
-  const userPrompt = `Lab: ${evidencePacket.lab}
+Only include facts that appear in the evidence packet in the user message below. Never invent capabilities, benchmark scores, prices, or URLs.`;
+
+const MESSAGE_2_ONLY_SYSTEM_PROMPT = `You are writing ONLY message 2 (the reply deep dive) of a two-message Telegram AI-model-release announcement, using this exact template:
+
+↩️ <b>{model} — full breakdown</b>
+
+📝 <b>In-depth summary</b>
+<blockquote expandable>{summary_2to4_paragraphs}</blockquote>
+
+🛡 <b>System card — {card_verdict}</b>
+<blockquote expandable>{card_deep_dive}</blockquote>
+
+Rules: {summary_2to4_paragraphs} goes positioning -> evidence -> real strengths -> optional "who should pick it / who shouldn't", blank line between paragraphs. {card_verdict} is "published, strong", "published, mixed", "published, concerning", or "not published". {card_deep_dive} uses bold-tagged bullets: <b>Alignment.</b>, <b>Cyber.</b>, <b>Notable behaviors.</b>, <b>Safeguards & deployment.</b>, <b>Unknowns.</b> — emphasize interesting/idiosyncratic behaviors (alignment audit deltas, sycophancy, eval-awareness, reward hacking, quirks). If no system card was found, keep the section but write exactly: "No system/model card published at launch." Telegram HTML whitelist only (<b> <i> <a> <code> <blockquote expandable>); escape & < > in interpolated text; 4096-char cap. Only include facts from the evidence packet in the user message below. Output nothing but message 2 — no delimiter, no message 1, no preamble.`;
+
+function splitWriterOutput(text: string): { message1: string; message2: string | null } {
+  const idx = text.indexOf(MESSAGE_2_DELIMITER);
+  if (idx === -1) return { message1: text.trim(), message2: null };
+  return {
+    message1: text.slice(0, idx).trim(),
+    message2: text.slice(idx + MESSAGE_2_DELIMITER.length).trim(),
+  };
+}
+
+function formatNeighbor(neighbor: NeighborPlacement | null): string {
+  if (!neighbor) return "the edge of the leaderboard";
+  return `${neighbor.name} (${neighbor.effort ?? "default"})`;
+}
+
+function formatPlacementLine(label: string, placement: Omit<IndexPlacement, "index">): string {
+  const levels = placement.levels
+    .map((l) => `${l.effort ?? "default"} ${l.score} (#${l.rank})`)
+    .join(" · ");
+  const anchor = placement.isTop
+    ? `🥇 highest tested, ahead of ${formatNeighbor(placement.lowerNeighbor)}`
+    : `best level between ${formatNeighbor(placement.higherNeighbor)} and ${formatNeighbor(placement.lowerNeighbor)}`;
+  return `${label}: #${placement.bestRank} of ${placement.n} — ${levels}; ${anchor}`;
+}
+
+function formatPlacementsForPrompt(placements: ModelPlacements | null): string {
+  if (!placements || !placements.onAA) {
+    return "Not yet listed on Artificial Analysis.";
+  }
+
+  const lines: string[] = [];
+  for (const idx of placements.indices) {
+    lines.push(formatPlacementLine(`${idx.index[0]!.toUpperCase()}${idx.index.slice(1)} Index`, idx));
+  }
+  if (placements.indices.length === 0) {
+    lines.push("No capability indices reported by Artificial Analysis for this model.");
+  }
+
+  if (placements.deepswe.status === "tested") {
+    lines.push(formatPlacementLine("DeepSWE", placements.deepswe));
+  } else {
+    lines.push("DeepSWE: not yet tested by Artificial Analysis for this model.");
+  }
+
+  const { pricing } = placements;
+  if (pricing.model) {
+    const parts = [`Pricing: input $${pricing.model.inputPerMtok ?? "[placeholder]"} / output $${pricing.model.outputPerMtok ?? "[placeholder]"} per Mtok`];
+    if (pricing.vsFlagship) {
+      const direction = pricing.vsFlagship.cheaper ? "cheaper" : "more expensive";
+      parts.push(`vs ${pricing.vsFlagship.flagshipName} (lab flagship): ${direction} by $${Math.abs(pricing.vsFlagship.deltaBlended).toFixed(2)} blended`);
+    }
+    lines.push(parts.join("; "));
+  }
+
+  return lines.join("\n");
+}
+
+function buildFinalWriterUserPrompt(evidencePacket: EvidencePacket, verifierFeedback?: VerifierFinding[]): string {
+  const allowedBenchmarkClaims = formatAllowedBenchmarkClaims(evidencePacket.claims);
+  const feedback = formatVerifierFeedback(verifierFeedback);
+  const placementsText = formatPlacementsForPrompt(evidencePacket.placements);
+
+  return `Lab: ${evidencePacket.lab}
 Models: ${evidencePacket.modelNames.join(", ")}
 Release Date: ${evidencePacket.releaseDate ?? "Unknown"}
 Official Article: ${evidencePacket.articleUrl}
+API availability: ${evidencePacket.availability.api}
+Subscription availability: ${evidencePacket.availability.subscription}
+System card status: ${evidencePacket.systemCardStatus}
 
-Allowed Benchmark Claims:
+Artificial Analysis placement data (use this, and only this, for Benchmarks rows and rank/price claims):
+${placementsText}
+
+Allowed Benchmark Claims: (vendor/system-card claims independent of Artificial Analysis)
 ${allowedBenchmarkClaims}
+
+Article Summary:
+${evidencePacket.articleSummary}
+
+System Card Summary:
+${evidencePacket.systemCardSummary}
 
 Evidence Synthesis:
 ${evidencePacket.evidenceSynthesis.slice(0, 4000)}
@@ -426,16 +585,40 @@ ${evidencePacket.evidenceSynthesis.slice(0, 4000)}
 Additional references:
 ${evidencePacket.references.slice(0, 6).map((r) => `- ${r.kind}: ${r.url}`).join("\n")}
 
-${verifierFeedback}
+${feedback}
 
-Write the Telegram announcement message.`;
+Write the two-message Telegram announcement now.`;
+}
+
+export async function runFinalWriter(
+  input: FinalWriterInput,
+  router: LlmRouter,
+  tracker: CostTracker,
+): Promise<FinalWriterOutput> {
+  const { evidencePacket } = input;
+
+  // The final writer receives only the sealed evidence packet — no fetch/browser tools
+  const userPrompt = buildFinalWriterUserPrompt(evidencePacket, input.verifierFeedback);
 
   const completion = await completeWithBudget(router, tracker, "final_writer", [
-    { role: "system", content: systemPrompt },
+    { role: "system", content: FINAL_WRITER_SYSTEM_PROMPT },
     { role: "user", content: userPrompt },
   ]);
 
-  return { message: completion.text };
+  const split = splitWriterOutput(completion.text);
+  if (split.message2 !== null) {
+    return { message1: split.message1, message2: split.message2 };
+  }
+
+  // Missing delimiter: treat the whole output as message 1 and regenerate
+  // message 2 once (writer contract rule 1 — two messages by default).
+  const message2Completion = await completeWithBudget(router, tracker, "final_writer", [
+    { role: "system", content: MESSAGE_2_ONLY_SYSTEM_PROMPT },
+    { role: "user", content: userPrompt },
+  ]);
+  const message2Split = splitWriterOutput(message2Completion.text);
+
+  return { message1: split.message1, message2: message2Split.message1 };
 }
 
 function formatAllowedBenchmarkClaims(claims: BenchmarkClaim[]): string {
@@ -467,7 +650,7 @@ function formatVerifierFeedback(findings: VerifierFinding[] | undefined): string
 ${lines.join("\n")}`;
 }
 
-function buildVerifierSafeFallbackMessage(evidencePacket: EvidencePacket): string {
+function buildVerifierSafeFallbackMessage(evidencePacket: EvidencePacket): FinalWriterOutput {
   const models = evidencePacket.modelNames.slice(0, 6);
   const modelText = models.length > 0 ? models.join(", ") : "new model";
   const sourceUrls = [
@@ -491,7 +674,7 @@ function buildVerifierSafeFallbackMessage(evidencePacket: EvidencePacket): strin
     ? "A related system or technical document was found in the evidence packet. Safety conclusions should be checked against the linked source."
     : "No system card, safety card, or technical report was found for this release.";
 
-  return [
+  const message1 = [
     `${evidencePacket.lab} model release`,
     `Models: ${modelText}`,
     `Release date: ${evidencePacket.releaseDate ?? "Unknown"}`,
@@ -516,6 +699,18 @@ function buildVerifierSafeFallbackMessage(evidencePacket: EvidencePacket): strin
     "Sources:",
     ...sourceUrls,
   ].join("\n").slice(0, 3800);
+
+  const message2 = [
+    `${modelText} — full breakdown`,
+    "",
+    "In-depth summary:",
+    evidencePacket.evidenceSynthesis || evidencePacket.articleSummary || "No further detail available.",
+    "",
+    "System card:",
+    safetyNotes,
+  ].join("\n").slice(0, 3800);
+
+  return { message1, message2 };
 }
 
 // ─── Verifier ─────────────────────────────────────────────────────────────────
@@ -791,11 +986,19 @@ export function runVerifier(input: VerifierInput): VerifierOutput {
 export type OrchestratorOptions = {
   router: LlmRouter;
   tracker: CostTracker;
+  // Pre-fetched Artificial Analysis leaderboard (Task 3's fetchAALeaderboard).
+  // When omitted or not ok, placements fall through to the "not yet listed"
+  // fallback rather than being fabricated.
+  leaderboard?: AALeaderboardResult;
 };
 
 export type OrchestratorResult = {
   evidencePacket: EvidencePacket;
+  // Alert-card message (message1), kept for callers of the pre-v2.2 single-message
+  // pipeline (e.g. buildReleaseNote). New callers should prefer message1/message2.
   finalMessage: string;
+  message1: string;
+  message2: string;
   verifierOutput: VerifierOutput;
   approved: boolean;
   rejected: boolean;
@@ -822,6 +1025,8 @@ function buildRejectedEvidencePacket(
     systemCardStatus: "not_found",
     references: [{ url: article.canonicalUrl ?? article.finalUrl, kind: "article", chunkIds: [] }],
     costTracker: tracker,
+    placements: null,
+    availability: AVAILABILITY_PLACEHOLDER,
   };
 }
 
@@ -862,6 +1067,8 @@ export async function runAgentOrchestration(
     return {
       evidencePacket,
       finalMessage: "",
+      message1: "",
+      message2: "",
       verifierOutput,
       approved: false,
       rejected: true,
@@ -911,6 +1118,13 @@ export async function runAgentOrchestration(
     tracker,
   );
 
+  // Placements come from the pre-fetched AA leaderboard (Task 3), never
+  // fabricated: no leaderboard / not ok / model absent -> null -> writer
+  // fallback line "Not yet listed on Artificial Analysis."
+  const placements = options.leaderboard?.ok
+    ? computePlacements(options.leaderboard.leaderboard, researcherOutput.modelNames)
+    : null;
+
   // Step 5: Build partial evidence packet (without synthesis yet)
   const partialPacket: Omit<EvidencePacket, "evidenceSynthesis"> = {
     lab: researcherOutput.lab,
@@ -924,6 +1138,8 @@ export async function runAgentOrchestration(
     systemCardStatus: systemCardSummary.status,
     references: researcherOutput.references,
     costTracker: tracker,
+    placements,
+    availability: articleSummary.availability,
   };
 
   // Step 6: Evidence synthesizer (DeepSeek)
@@ -934,12 +1150,15 @@ export async function runAgentOrchestration(
     evidenceSynthesis,
   };
 
-  // Step 7: Final writer (OpenRouter Kimi) — receives sealed evidence packet only
+  // Step 7: Final writer (OpenRouter Kimi) — receives sealed evidence packet only.
+  // The verifier checks message1 (the alert card), which per the writer contract
+  // must read completely on its own — message2's deep dive is not independently
+  // claim-checked until the placements-aware verifier (Task 6).
   let finalWriterOutput = await runFinalWriter({ evidencePacket }, router, tracker);
 
   // Step 8: Verifier runs independently after final writing, before any send
   let verifierOutput = runVerifier({
-    message: finalWriterOutput.message,
+    message: finalWriterOutput.message1,
     evidencePacket,
   });
 
@@ -950,22 +1169,24 @@ export async function runAgentOrchestration(
       tracker,
     );
     verifierOutput = runVerifier({
-      message: finalWriterOutput.message,
+      message: finalWriterOutput.message1,
       evidencePacket,
     });
   }
 
   if (!verifierOutput.approved) {
-    finalWriterOutput = { message: buildVerifierSafeFallbackMessage(evidencePacket) };
+    finalWriterOutput = buildVerifierSafeFallbackMessage(evidencePacket);
     verifierOutput = runVerifier({
-      message: finalWriterOutput.message,
+      message: finalWriterOutput.message1,
       evidencePacket,
     });
   }
 
   return {
     evidencePacket,
-    finalMessage: finalWriterOutput.message,
+    finalMessage: finalWriterOutput.message1,
+    message1: finalWriterOutput.message1,
+    message2: finalWriterOutput.message2,
     verifierOutput,
     approved: verifierOutput.approved,
     rejected: false,

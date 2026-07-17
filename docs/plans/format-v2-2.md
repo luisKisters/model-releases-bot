@@ -131,21 +131,38 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
 
 ### Task 4: Prompts And Two-Message Writer
 
-- [ ] `EvidencePacket` (`src/lib/radar/agents.ts`): add `placements` and
+- [x] `EvidencePacket` (`src/lib/radar/agents.ts`): add `placements` and
       `availability` (API availability + subscription availability strings; add
       one instruction to the article-summarizer prompt to extract them).
-- [ ] `runFinalWriter`: replace the system prompt with the Message 1 + Message 2
+      (`placements: ModelPlacements | null` computed via `computePlacements`
+      from an optional `OrchestratorOptions.leaderboard`; `availability:
+      AvailabilityInfo` parsed from `API_AVAILABILITY:` /
+      `SUBSCRIPTION_AVAILABILITY:` lines the article-summarizer prompt now asks
+      for, defaulting to the `[placeholder]` placeholder discipline when
+      absent.)
+- [x] `runFinalWriter`: replace the system prompt with the Message 1 + Message 2
       templates and the 11-rule writer contract from
       `docs/telegram-message-format-v2.md` (verbatim contract). Writer emits both
       messages separated by `===MESSAGE_2===`; split and return
       `{message1, message2}`.
-- [ ] `runSystemCardSummarizer`: rewrite prompt to hunt interesting behaviors
+      (`FINAL_WRITER_SYSTEM_PROMPT` embeds both templates, the 11 numbered
+      rules, and the mandatory fallback lines; `splitWriterOutput` splits on
+      the delimiter; missing-delimiter output is treated as message1 and
+      message2 is regenerated once via a dedicated message-2-only prompt.
+      `OrchestratorResult` now exposes `message1`/`message2` alongside a
+      `finalMessage` alias (`= message1`) kept for the pre-v2.2
+      `messages.ts`/`buildReleaseNote` consumers until Task 5/6 migrate them.)
+- [x] `runSystemCardSummarizer`: rewrite prompt to hunt interesting behaviors
       (alignment audit results, sycophancy, eval-awareness, reward hacking,
       notable quirks); raise input cap 6000 → 12000 chars.
-- [ ] `llm.ts`: raise `max_tokens` to 4096 for `final_writer` only.
-- [ ] Tests: two-message split (incl. missing delimiter fallback = treat whole
+- [x] `llm.ts`: raise `max_tokens` to 4096 for `final_writer` only.
+- [x] Tests: two-message split (incl. missing delimiter fallback = treat whole
       output as message 1 and regenerate message 2 once), fallback lines for
       no-AA / no-DeepSWE / no-system-card.
+      (new tests in the "runFinalWriter – offline" describe block in
+      `tests/agents.test.ts`; existing orchestration/message tests updated for
+      the new `EvidencePacket`/`FinalWriterOutput`/`OrchestratorResult` shapes.
+      `npx vitest run` (795 tests) and `npx tsc --noEmit` both green.)
 
 ### Task 5: Telegram HTML And Threaded Reply
 

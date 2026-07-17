@@ -213,7 +213,7 @@ export async function callOpenAICompatible(
         "HTTP-Referer": "https://github.com/model-release-radar",
         "X-Title": "model-release-radar",
       },
-      body: JSON.stringify({ model, messages, max_tokens: 2048, stream: false }),
+      body: JSON.stringify({ model, messages, max_tokens: role === "final_writer" ? 4096 : 2048, stream: false }),
     });
 
     clearTimeout(timer);

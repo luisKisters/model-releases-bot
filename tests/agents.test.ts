@@ -93,6 +93,8 @@ function makeEvidencePacket(overrides: Partial<EvidencePacket> = {}): EvidencePa
       },
     ],
     costTracker: tracker,
+    placements: null,
+    availability: { api: "[placeholder]", subscription: "[placeholder]" },
     ...overrides,
   };
 }
@@ -539,11 +541,48 @@ describe("runBenchmarkAggregator – offline", () => {
 });
 
 describe("runFinalWriter – offline", () => {
-  it("returns a non-empty message using offline router", async () => {
+  it("returns non-empty message1 and message2 using offline router", async () => {
     const router = createLlmRouter({ offline: true });
     const tracker = new CostTracker(10);
     const output = await runFinalWriter({ evidencePacket: makeEvidencePacket() }, router, tracker);
-    expect(output.message.length).toBeGreaterThan(0);
+    expect(output.message1.length).toBeGreaterThan(0);
+    expect(output.message2.length).toBeGreaterThan(0);
+  });
+
+  it("splits the writer output on the message-2 delimiter", async () => {
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role) {
+        return makeFakeLlmCompletion(role, {
+          text: "MESSAGE ONE CONTENT\n===MESSAGE_2===\nMESSAGE TWO CONTENT",
+        });
+      },
+    };
+    const tracker = new CostTracker(10);
+    const output = await runFinalWriter({ evidencePacket: makeEvidencePacket() }, router, tracker);
+    expect(output.message1).toBe("MESSAGE ONE CONTENT");
+    expect(output.message2).toBe("MESSAGE TWO CONTENT");
+    // Delimiter present -> exactly one final_writer call, no regeneration needed.
+    expect(tracker.stages.filter((s) => s.stage === "final_writer")).toHaveLength(1);
+  });
+
+  it("treats the whole output as message1 and regenerates message2 once when the delimiter is missing", async () => {
+    let finalWriterCalls = 0;
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role) {
+        if (role !== "final_writer") return makeFakeLlmCompletion(role);
+        finalWriterCalls += 1;
+        return makeFakeLlmCompletion(role, {
+          text: finalWriterCalls === 1 ? "MESSAGE ONE ONLY, NO DELIMITER" : "REGENERATED MESSAGE TWO",
+        });
+      },
+    };
+    const tracker = new CostTracker(10);
+    const output = await runFinalWriter({ evidencePacket: makeEvidencePacket() }, router, tracker);
+    expect(finalWriterCalls).toBe(2);
+    expect(output.message1).toBe("MESSAGE ONE ONLY, NO DELIMITER");
+    expect(output.message2).toBe("REGENERATED MESSAGE TWO");
   });
 
   it("records usage for final_writer stage", async () => {
@@ -577,7 +616,7 @@ describe("runFinalWriter – offline", () => {
     const prompt = calls.find((call) => call.role === "final_writer")!.messages.map((m) => m.content).join("\n");
     expect(prompt).toContain("Allowed Benchmark Claims:");
     expect(prompt).toContain("None. The final message must avoid named benchmark claims");
-    expect(prompt).toContain("competitor model names");
+    expect(prompt).toContain("independent benchmark verification is unavailable");
   });
 
   it("passes structured benchmark claims into the final writer prompt", async () => {
@@ -611,6 +650,77 @@ describe("runFinalWriter – offline", () => {
 
     const prompt = calls.find((call) => call.role === "final_writer")!.messages.map((m) => m.content).join("\n");
     expect(prompt).toContain("- MMLU: 92.5%; status=missing");
+  });
+
+  it("tells the writer the model is not yet listed on Artificial Analysis when no placements are available", async () => {
+    const calls: { role: LlmRole; messages: LlmMessage[] }[] = [];
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role, messages) {
+        calls.push({ role, messages });
+        return makeFakeLlmCompletion(role);
+      },
+    };
+
+    await runFinalWriter({ evidencePacket: makeEvidencePacket({ placements: null }) }, router, new CostTracker(10));
+
+    const prompt = calls[0]!.messages.map((m) => m.content).join("\n");
+    expect(prompt).toContain("Not yet listed on Artificial Analysis.");
+  });
+
+  it("emits the mandatory DeepSWE fallback line when Artificial Analysis has not tested it", async () => {
+    const calls: { role: LlmRole; messages: LlmMessage[] }[] = [];
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role, messages) {
+        calls.push({ role, messages });
+        return makeFakeLlmCompletion(role);
+      },
+    };
+
+    const placements = {
+      modelNames: ["DeepSeek-V4-Pro"],
+      onAA: true,
+      indices: [
+        {
+          index: "intelligence" as const,
+          levels: [{ effort: "high", score: 58, rank: 9 }],
+          n: 42,
+          bestRank: 9,
+          higherNeighbor: null,
+          lowerNeighbor: null,
+          isTop: false,
+        },
+      ],
+      deepswe: { status: "not_tested" as const },
+      pricing: { model: null, vsHigherNeighbor: null, vsLowerNeighbor: null, vsFlagship: null },
+    };
+
+    await runFinalWriter({ evidencePacket: makeEvidencePacket({ placements }) }, router, new CostTracker(10));
+
+    const prompt = calls[0]!.messages.map((m) => m.content).join("\n");
+    expect(prompt).toContain("• DeepSWE: not yet tested by Artificial Analysis for this model.");
+  });
+
+  it("instructs the writer with the no-system-card fallback line", async () => {
+    const calls: { role: LlmRole; messages: LlmMessage[] }[] = [];
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role, messages) {
+        calls.push({ role, messages });
+        return makeFakeLlmCompletion(role);
+      },
+    };
+
+    await runFinalWriter(
+      { evidencePacket: makeEvidencePacket({ systemCardStatus: "not_found" }) },
+      router,
+      new CostTracker(10),
+    );
+
+    const prompt = calls[0]!.messages.map((m) => m.content).join("\n");
+    expect(prompt).toContain("no system card published");
+    expect(prompt).toContain("No system/model card published at launch.");
   });
 });
 
@@ -672,20 +782,20 @@ describe("runAgentOrchestration – offline", () => {
         }
 
         finalWriterCalls += 1;
-        return makeFakeLlmCompletion(role, {
-          text: finalWriterCalls === 1
-            ? [
-                "Where it shines: open-source SOTA on agentic coding benchmarks.",
-                "Unknown: independent benchmark verification unavailable.",
-                "Source: https://api-docs.deepseek.com/news/news260424",
-              ].join("\n")
-            : [
-                "DeepSeek-V4-Pro released.",
-                "Benchmark context: structured benchmark evidence unavailable.",
-                "Unknown: independent benchmark verification and safety details unavailable.",
-                "Source: https://api-docs.deepseek.com/news/news260424",
-              ].join("\n"),
-        });
+        const message1 = finalWriterCalls === 1
+          ? [
+              "Where it shines: open-source SOTA on agentic coding benchmarks.",
+              "Unknown: independent benchmark verification unavailable.",
+              "Source: https://api-docs.deepseek.com/news/news260424",
+            ].join("\n")
+          : [
+              "DeepSeek-V4-Pro released.",
+              "Benchmark context: structured benchmark evidence unavailable.",
+              "Unknown: independent benchmark verification and safety details unavailable.",
+              "Source: https://api-docs.deepseek.com/news/news260424",
+            ].join("\n");
+        // Delimiter present -> one final_writer call per runFinalWriter invocation.
+        return makeFakeLlmCompletion(role, { text: `${message1}\n===MESSAGE_2===\nDeep dive placeholder.` });
       },
     };
 
@@ -700,6 +810,8 @@ describe("runAgentOrchestration – offline", () => {
     expect(finalWriterCalls).toBe(2);
     expect(result.approved).toBe(true);
     expect(result.finalMessage).toContain("structured benchmark evidence unavailable");
+    expect(result.message1).toContain("structured benchmark evidence unavailable");
+    expect(result.message2).toBe("Deep dive placeholder.");
   });
 
   it("falls back to a deterministic verifier-safe message after two rejected drafts", async () => {
@@ -712,13 +824,13 @@ describe("runAgentOrchestration – offline", () => {
         }
 
         finalWriterCalls += 1;
-        return makeFakeLlmCompletion(role, {
-          text: [
-            "Where it shines: open-source SOTA on agentic coding benchmarks.",
-            "Unknown: independent benchmark verification unavailable.",
-            "Source: https://api-docs.deepseek.com/news/news260424",
-          ].join("\n"),
-        });
+        const message1 = [
+          "Where it shines: open-source SOTA on agentic coding benchmarks.",
+          "Unknown: independent benchmark verification unavailable.",
+          "Source: https://api-docs.deepseek.com/news/news260424",
+        ].join("\n");
+        // Delimiter present -> one final_writer call per runFinalWriter invocation.
+        return makeFakeLlmCompletion(role, { text: `${message1}\n===MESSAGE_2===\nDeep dive placeholder.` });
       },
     };
 
@@ -734,6 +846,7 @@ describe("runAgentOrchestration – offline", () => {
     expect(result.approved).toBe(true);
     expect(result.finalMessage).toContain("DeepSeek model release");
     expect(result.finalMessage).toContain("Structured benchmark evidence was not extracted");
+    expect(result.message1).toContain("DeepSeek model release");
     expect(result.verifierOutput.findings).toEqual([]);
   });
 
@@ -888,6 +1001,7 @@ describe("Agent architecture constraints", () => {
     // This test verifies the type signature: finalWriter only takes FinalWriterInput
     // which contains only evidencePacket, not article/fetch/browser
     const output = await runFinalWriter({ evidencePacket: makeEvidencePacket() }, router, tracker);
-    expect(typeof output.message).toBe("string");
+    expect(typeof output.message1).toBe("string");
+    expect(typeof output.message2).toBe("string");
   });
 });

@@ -1,6 +1,6 @@
 import { evaluateArticleGate } from "./articleGate";
 import { extractModelNames } from "./text";
-import { runVerifier } from "./agents";
+import { runVerifier, AVAILABILITY_PLACEHOLDER } from "./agents";
 import type { EvidencePacket, VerifierOutput } from "./agents";
 import type { BenchmarkClaim } from "./benchmarks";
 import {
@@ -205,6 +205,8 @@ function buildOfflineEvidencePacket(
     systemCardStatus,
     references: [{ url: fixture.url, kind: "article" as const, chunkIds: [] }],
     costTracker: tracker,
+    placements: null,
+    availability: AVAILABILITY_PLACEHOLDER,
   };
 }
 
