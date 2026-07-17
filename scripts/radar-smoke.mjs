@@ -6,7 +6,7 @@ import { aggregateBenchmarkEvidence } from "../src/lib/radar/benchmarks.ts";
 import { runAgentOrchestration, extractLabFromUrl } from "../src/lib/radar/agents.ts";
 import { buildReleaseNote, canSendReleaseNote } from "../src/lib/radar/messages.ts";
 import {
-  sendReleaseNote,
+  sendReleasePair,
   sendTelegramMessage,
   shouldSendToTelegram,
   telegramConfigured,
@@ -466,7 +466,10 @@ async function runReleasePipeline(url, { dryRun, sendTg, maxCostUsd, requireBrow
       }
 
       try {
-        const sendResult = await sendReleaseNote(releaseNote);
+        const sendResult = await sendReleasePair(
+          orchestrationResult.message1,
+          orchestrationResult.message2,
+        );
         telegramResult = sendResult;
         if (!sendResult.ok) {
           return {
@@ -478,7 +481,7 @@ async function runReleasePipeline(url, { dryRun, sendTg, maxCostUsd, requireBrow
             secretStatus,
             estimatedCostUsd: tracker.totalCostUsd,
             telegramResult,
-            detail: sendResult.reason ?? "Telegram send returned not-ok.",
+            detail: sendResult.message1?.error ?? sendResult.message2?.error ?? "Telegram send returned not-ok.",
           };
         }
       } catch (err) {
@@ -523,7 +526,8 @@ async function runReleasePipeline(url, { dryRun, sendTg, maxCostUsd, requireBrow
       verifierStatus: releaseNote.verifierStatus,
       verifierApproved: orchestrationResult.approved,
       verifierFindings: orchestrationResult.verifierOutput.findings,
-      finalMessage: orchestrationResult.finalMessage,
+      message1: orchestrationResult.message1,
+      message2: orchestrationResult.message2,
       releaseNote: {
         title: releaseNote.title,
         lab: releaseNote.lab,
