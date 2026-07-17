@@ -229,9 +229,13 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
 
 ### Task 7: Config And Cleanup
 
-- [ ] `llm.ts`: `DEFAULT_KIMI_MODEL` → `moonshotai/kimi-k2.6`.
-- [ ] Update all affected existing tests; full `npx vitest run` green,
+- [x] `llm.ts`: `DEFAULT_KIMI_MODEL` → `moonshotai/kimi-k2.6`.
+- [x] Update all affected existing tests; full `npx vitest run` green,
       `npx tsc --noEmit` clean.
+      (no test hardcoded the old default string — `tests/llm.test.ts` asserts
+      against the exported `DEFAULT_KIMI_MODEL` constant itself, so it picked
+      up the new value automatically. `npx vitest run` 810 tests green,
+      `npx tsc --noEmit` clean.)
 
 ### Task 8: Validation Run, Cost Report, And Push To Main
 

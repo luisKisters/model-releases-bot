@@ -5,7 +5,7 @@ import type { FetchImpl } from "./fetching";
 export const DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1";
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export const DEFAULT_DEEPSEEK_MODEL = "deepseek-chat";
-export const DEFAULT_KIMI_MODEL = "moonshotai/kimi-k2";
+export const DEFAULT_KIMI_MODEL = "moonshotai/kimi-k2.6";
 
 // --- LLM Roles ---
 
