@@ -256,7 +256,13 @@ function normalizeAARows(
   // remains independent of the upstream transport format.
   const evaluations = raw["evaluations"];
   if (evaluations && typeof evaluations === "object" && !Array.isArray(evaluations)) {
+    // Composite index fields (artificial_analysis_*_index) feed the
+    // leaderboard/placements pipeline via normalizeAALeaderboardEntry —
+    // treating them as named benchmark claims here would fabricate a
+    // bogus "supported" claim for a score that isn't a real benchmark.
+    const compositeIndexFields = new Set(Object.values(AA_INDEX_EVAL_FIELDS));
     const rows = Object.entries(evaluations)
+      .filter(([benchmark]) => !compositeIndexFields.has(benchmark))
       .map(([benchmark, value]) => makeRow(benchmark, value))
       .filter((row): row is ArtificialAnalysisRow => row !== null);
 
@@ -274,7 +280,16 @@ function normalizeAARows(
       ? raw["benchmark"]
       : typeof raw["metric"] === "string"
         ? raw["metric"]
-        : "unknown";
+        : null;
+
+  // The real /api/v2/data/llms/models response (confirmed live shape, see
+  // docs/plans/format-v2-2-notes.md) has no per-named-benchmark fields —
+  // only composite evaluations/pricing, which fetchAALeaderboard/
+  // normalizeAALeaderboardEntry parse correctly for the placements section.
+  // Skip rows we can't attribute to a real named benchmark+value rather than
+  // fabricating a placeholder "unknown"/null claim that would surface as a
+  // bogus "supported" Artificial Analysis claim in the writer prompt.
+  if (!benchmark) return [];
 
   const row = makeRow(benchmark, raw["value"] ?? raw["score"] ?? raw["result"] ?? null);
   return row ? [row] : [];
@@ -425,7 +440,7 @@ export async function queryArtificialAnalysis(
 
 export type AACapabilityIndex = "intelligence" | "coding" | "math" | "agentic";
 
-const AA_CAPABILITY_INDICES: AACapabilityIndex[] = ["intelligence", "coding", "math", "agentic"];
+export const AA_CAPABILITY_INDICES: AACapabilityIndex[] = ["intelligence", "coding", "math", "agentic"];
 
 const AA_INDEX_EVAL_FIELDS: Record<AACapabilityIndex, string> = {
   intelligence: "artificial_analysis_intelligence_index",
@@ -612,8 +627,8 @@ export type PricingDelta = { cheaper: boolean; deltaBlended: number };
 
 export type PricingComparison = {
   model: AALeaderboardPricing | null;
-  vsHigherNeighbor: PricingDelta | null;
-  vsLowerNeighbor: PricingDelta | null;
+  vsHigherNeighbor: (PricingDelta & { neighborName: string }) | null;
+  vsLowerNeighbor: (PricingDelta & { neighborName: string }) | null;
   vsFlagship: (PricingDelta & { flagshipName: string }) | null;
 };
 
@@ -625,12 +640,32 @@ export type ModelPlacements = {
   pricing: PricingComparison;
 };
 
-function entryMatchesModelNames(entry: AALeaderboardEntry, modelNames: string[]): boolean {
-  const baseLower = entry.baseName.toLowerCase();
+// Article-text model-name extraction (extractModelNames in text.ts) uses a
+// space-free regex, so a genuinely multi-word AA name like "GPT-5.2 mini" is
+// truncated to "GPT-5.2" before it ever reaches this matcher. Recognizing a
+// known, non-distinguishing variant qualifier as a suffix recovers that case
+// without reopening the cross-attribution bug this was previously hardened
+// against (an extracted "GPT-5" wrongly matching a sibling "GPT-5 Mini"
+// entry) — the fallback is disabled whenever the bare (untruncated) name is
+// itself a distinct model on the leaderboard, so a real sibling still wins.
+const VARIANT_QUALIFIERS = new Set([
+  "mini", "nano", "micro", "flash", "air", "lite", "turbo", "pro",
+  "plus", "max", "ultra", "small", "medium", "large", "instant", "preview",
+]);
+
+function entryMatchesModelNames(
+  entry: AALeaderboardEntry,
+  modelNames: string[],
+  allBaseNames: ReadonlySet<string>,
+): boolean {
+  const baseLower = entry.baseName.toLowerCase().trim();
   return modelNames.some((name) => {
     const nameLower = name.toLowerCase().trim();
     if (!nameLower) return false;
-    return baseLower === nameLower || baseLower.includes(nameLower) || nameLower.includes(baseLower);
+    if (baseLower === nameLower) return true;
+    if (allBaseNames.has(nameLower)) return false;
+    if (!baseLower.startsWith(`${nameLower} `)) return false;
+    return VARIANT_QUALIFIERS.has(baseLower.slice(nameLower.length + 1));
   });
 }
 
@@ -639,6 +674,7 @@ type ScoredPlacement = Omit<IndexPlacement, "index"> | null;
 function computeScoredPlacement(
   entries: AALeaderboardEntry[],
   modelNames: string[],
+  allBaseNames: ReadonlySet<string>,
   getScore: (entry: AALeaderboardEntry) => number | null,
 ): ScoredPlacement {
   const scored = entries
@@ -648,7 +684,7 @@ function computeScoredPlacement(
   scored.sort((a, b) => b.score - a.score);
   const ranked = scored.map((s, i) => ({ ...s, rank: i + 1 }));
 
-  const ownRanked = ranked.filter((r) => entryMatchesModelNames(r.entry, modelNames));
+  const ownRanked = ranked.filter((r) => entryMatchesModelNames(r.entry, modelNames, allBaseNames));
   if (ownRanked.length === 0) return null;
 
   const levels: PlacementLevel[] = ownRanked.map((r) => ({
@@ -661,7 +697,7 @@ function computeScoredPlacement(
 
   let higherNeighbor: NeighborPlacement | null = null;
   for (let i = bestIndex - 1; i >= 0; i--) {
-    if (!entryMatchesModelNames(ranked[i].entry, modelNames)) {
+    if (!entryMatchesModelNames(ranked[i].entry, modelNames, allBaseNames)) {
       higherNeighbor = {
         name: ranked[i].entry.baseName,
         effort: ranked[i].entry.effort,
@@ -674,7 +710,7 @@ function computeScoredPlacement(
 
   let lowerNeighbor: NeighborPlacement | null = null;
   for (let i = bestIndex + 1; i < ranked.length; i++) {
-    if (!entryMatchesModelNames(ranked[i].entry, modelNames)) {
+    if (!entryMatchesModelNames(ranked[i].entry, modelNames, allBaseNames)) {
       lowerNeighbor = {
         name: ranked[i].entry.baseName,
         effort: ranked[i].entry.effort,
@@ -698,9 +734,15 @@ function findLabFlagship(
   entries: AALeaderboardEntry[],
   ownEntry: AALeaderboardEntry,
   modelNames: string[],
+  allBaseNames: ReadonlySet<string>,
 ): AALeaderboardEntry | null {
+  // "unknown" is a fallback for entries with no model_creator, not a real
+  // lab — grouping by it would attribute an unrelated lab's model as this
+  // model's "flagship" whenever both happen to be missing creator metadata.
+  if (ownEntry.labSlug === "unknown") return null;
+
   const labPeers = entries.filter(
-    (e) => e.labSlug === ownEntry.labSlug && !entryMatchesModelNames(e, modelNames),
+    (e) => e.labSlug === ownEntry.labSlug && !entryMatchesModelNames(e, modelNames, allBaseNames),
   );
   if (labPeers.length === 0) return null;
   return labPeers.reduce((best, e) => {
@@ -714,8 +756,9 @@ function computePricingComparison(
   entries: AALeaderboardEntry[],
   modelNames: string[],
   indices: IndexPlacement[],
+  allBaseNames: ReadonlySet<string>,
 ): PricingComparison {
-  const ownEntries = entries.filter((e) => entryMatchesModelNames(e, modelNames));
+  const ownEntries = entries.filter((e) => entryMatchesModelNames(e, modelNames, allBaseNames));
   if (ownEntries.length === 0) {
     return { model: null, vsHigherNeighbor: null, vsLowerNeighbor: null, vsFlagship: null };
   }
@@ -741,33 +784,41 @@ function computePricingComparison(
       )
     : undefined;
 
-  const flagshipEntry = findLabFlagship(entries, primaryEntry, modelNames);
+  const flagshipEntry = findLabFlagship(entries, primaryEntry, modelNames, allBaseNames);
   const flagshipDelta = flagshipEntry ? comparePricing(model, flagshipEntry.pricing) : null;
+
+  const higherNeighborDelta = higherNeighborEntry ? comparePricing(model, higherNeighborEntry.pricing) : null;
+  const lowerNeighborDelta = lowerNeighborEntry ? comparePricing(model, lowerNeighborEntry.pricing) : null;
 
   return {
     model,
-    vsHigherNeighbor: higherNeighborEntry ? comparePricing(model, higherNeighborEntry.pricing) : null,
-    vsLowerNeighbor: lowerNeighborEntry ? comparePricing(model, lowerNeighborEntry.pricing) : null,
+    vsHigherNeighbor: higherNeighborEntry && higherNeighborDelta
+      ? { ...higherNeighborDelta, neighborName: higherNeighborEntry.baseName }
+      : null,
+    vsLowerNeighbor: lowerNeighborEntry && lowerNeighborDelta
+      ? { ...lowerNeighborDelta, neighborName: lowerNeighborEntry.baseName }
+      : null,
     vsFlagship: flagshipEntry && flagshipDelta ? { ...flagshipDelta, flagshipName: flagshipEntry.baseName } : null,
   };
 }
 
 export function computePlacements(leaderboard: AALeaderboard, modelNames: string[]): ModelPlacements {
   const entries = leaderboard.entries;
+  const allBaseNames = new Set(entries.map((e) => e.baseName.toLowerCase().trim()));
 
   const indices: IndexPlacement[] = [];
   for (const index of AA_CAPABILITY_INDICES) {
-    const placement = computeScoredPlacement(entries, modelNames, (e) => e.scores[index] ?? null);
+    const placement = computeScoredPlacement(entries, modelNames, allBaseNames, (e) => e.scores[index] ?? null);
     if (placement) indices.push({ index, ...placement });
   }
 
-  const deepswePlacement = computeScoredPlacement(entries, modelNames, (e) => e.deepswe);
+  const deepswePlacement = computeScoredPlacement(entries, modelNames, allBaseNames, (e) => e.deepswe);
   const deepswe: DeepswePlacement = deepswePlacement
     ? { status: "tested", ...deepswePlacement }
     : { status: "not_tested" };
 
-  const onAA = entries.some((e) => entryMatchesModelNames(e, modelNames));
-  const pricing = computePricingComparison(entries, modelNames, indices);
+  const onAA = entries.some((e) => entryMatchesModelNames(e, modelNames, allBaseNames));
+  const pricing = computePricingComparison(entries, modelNames, indices, allBaseNames);
 
   return { modelNames, onAA, indices, deepswe, pricing };
 }

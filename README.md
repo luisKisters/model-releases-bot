@@ -126,8 +126,8 @@ All required variables are documented in `.env.example` without real values.
 | `RADAR_TELEGRAM_SEND_ENABLED` | No | Set `true` to enable live sends; default `false` |
 | `DEEPSEEK_API_KEY` | For live LLM | DeepSeek API key for article/evidence summarization |
 | `OPENROUTER_API_KEY` | For live LLM | OpenRouter API key for Kimi K2 final writer |
-| `OPENROUTER_KIMI_MODEL` | No | Model ID; default `moonshotai/kimi-k2` |
-| `ARTIFICIAL_ANALYSIS_API_KEY` | No | Artificial Analysis API key for benchmark data |
+| `OPENROUTER_KIMI_MODEL` | No | Model ID; default `moonshotai/kimi-k2.6` |
+| `ARTIFICIAL_ANALYSIS_API_KEY` | No | Artificial Analysis API key; drives the leaderboard rank/neighbor/pricing data used in the Telegram message's Benchmarks section |
 | `MODEL_RELEASES_MAX_COST_USD` | No | Per-run cost cap in USD; default `1.00` |
 | `RADAR_BROWSER_ENABLED` | No | Set `true` to enable Playwright browser; default `false` |
 
@@ -167,10 +167,10 @@ npx convex env remove TELEGRAM_CHAT_ID --prod
 
 The bot uses two LLM providers:
 
-- DeepSeek — article summarization, system-card topic summaries, benchmark aggregation, and evidence synthesis
-- OpenRouter Kimi K2 — final condensed user-facing message only
+- DeepSeek — AI release classification (rejects non-release articles before evidence gathering), article summarization, system-card topic summaries, benchmark aggregation, and evidence synthesis
+- OpenRouter Kimi K2 — final writer only, producing a two-message Telegram pair (an alert-card message plus a threaded reply with the in-depth summary and system-card breakdown)
 
-Pricing is configured in `src/lib/radar/llm.ts` with input/output token rates and last-verified dates. Per-stage token usage and estimated cost are recorded in every pipeline run and included in the final Telegram message.
+Pricing is configured in `src/lib/radar/llm.ts` with input/output token rates and last-verified dates. Per-stage token usage and estimated cost are recorded in every pipeline run and included in the pipeline's cost report.
 
 Set `MODEL_RELEASES_MAX_COST_USD` to enforce a hard cap. The pipeline aborts before sending if the cap would be exceeded.
 
@@ -224,7 +224,7 @@ Required acceptance checks for `https://api-docs.deepseek.com/news/news260424`:
 - Benchmark claims marked `vendor_provided` unless supported by independent evidence
 - Safety/system-card status is explicit (`found`, `not_found`, or `not_applicable`) — no invented safety claims
 - DeepSeek stage usage, Kimi final-writer usage, verifier status, and total estimated cost are present in output
-- Final Telegram text includes strengths, weaknesses/unknowns, benchmark context, safety/system notes, and sources
+- Final Telegram output is a two-message pair (see `docs/telegram-message-format-v2.md`): message 1 is the alert card (verdict, facts, benchmarks, sources) and message 2 is a threaded reply with the in-depth summary and system-card breakdown
 - No Telegram send in dry-run mode
 
 ## Interpreting Structured Skips

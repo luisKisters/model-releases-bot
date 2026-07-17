@@ -50,11 +50,11 @@ export const DEEPSEEK_PRICING: ModelPricing = {
 };
 
 export const OPENROUTER_KIMI_PRICING: ModelPricing = {
-  inputPerMillion: 1.00,
-  outputPerMillion: 3.00,
+  inputPerMillion: 0.66,
+  outputPerMillion: 3.41,
   currency: "USD",
-  sourceUrl: "https://openrouter.ai/moonshotai/kimi-k2",
-  lastVerifiedDate: "2026-07-01",
+  sourceUrl: "https://openrouter.ai/moonshotai/kimi-k2.6",
+  lastVerifiedDate: "2026-07-18",
 };
 
 // --- Usage ---

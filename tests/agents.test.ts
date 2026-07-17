@@ -94,6 +94,7 @@ function makeEvidencePacket(overrides: Partial<EvidencePacket> = {}): EvidencePa
     ],
     costTracker: tracker,
     placements: null,
+    placementsUnavailableReason: null,
     availability: { api: "[placeholder]", subscription: "[placeholder]" },
     ...overrides,
   };
@@ -182,6 +183,16 @@ describe("runVerifier – verified messages pass", () => {
     expect(urlFindings).toHaveLength(0);
   });
 
+  it("matches a known URL wrapped in an HTML anchor tag against the evidence packet, not the trailing markup", () => {
+    const message = [
+      '<i>Released 2026-04-24 · <a href="https://api-docs.deepseek.com/news/news260424">Announcement</a></i>',
+      "Unknown: no safety card.",
+    ].join("\n");
+    const result = runVerifier(makeVerifierInput(message));
+    const urlFindings = result.findings.filter((f) => f.issue === "wrong_source_url");
+    expect(urlFindings).toHaveLength(0);
+  });
+
   it("approves a benchmark row and verdict comparison that exactly match placements data", () => {
     const message = [
       "<b>Verdict.</b> Opus 4.8 beats it on DeepSWE (52.0% vs 41.2%) and is cheaper in every pricing category, so it remains the safer pick. (full breakdown in reply)",
@@ -197,6 +208,171 @@ describe("runVerifier – verified messages pass", () => {
     );
     expect(placementFindings).toHaveLength(0);
     expect(result.approved).toBe(true);
+  });
+
+  it("blocks a coordinated 'beats it ... and is cheaper' claim whose elided subject direction contradicts pricing data", () => {
+    const message = [
+      "<b>Verdict.</b> Opus 4.8 beats it on DeepSWE (52.0% vs 41.2%) and is cheaper in every pricing category, so it remains the safer pick. (full breakdown in reply)",
+      "Unknown: no independent verification beyond Artificial Analysis.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+
+    // vsFlagship.cheaper: true means the flagship (Opus 4.8) is actually
+    // *more* expensive than the release — the opposite of the elided "and is
+    // cheaper" claim, which asserts Opus 4.8 undercuts the release on price.
+    const placements = makePlacements({
+      pricing: {
+        model: { inputPerMtok: 3, outputPerMtok: 15, blendedPerMtok: 6 },
+        vsHigherNeighbor: null,
+        vsLowerNeighbor: null,
+        vsFlagship: { cheaper: true, deltaBlended: 2, flagshipName: "Opus 4.8" },
+      },
+    });
+    const result = runVerifier(makeVerifierInput(message, { placements }));
+    const verdictFindings = result.findings.filter(
+      (f) => f.issue === "unsupported_benchmark" && f.claim.includes("Opus 4.8"),
+    );
+    expect(verdictFindings.length).toBeGreaterThan(0);
+    expect(result.approved).toBe(false);
+  });
+
+  it("blocks a malformed bullet row that doesn't match the rank shape instead of silently dropping it", () => {
+    const message = [
+      "<b>Verdict.</b> A solid release. (full breakdown in reply)",
+      "• Intelligence Index: best in the world, unmatched by any other model, dominates every leaderboard",
+      "Unknown: no independent verification beyond Artificial Analysis.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+
+    const result = runVerifier(makeVerifierInput(message, { placements: null }));
+    const malformedFindings = result.findings.filter(
+      (f) => f.issue === "unsupported_benchmark" && f.claim.includes("Intelligence Index"),
+    );
+    expect(malformedFindings.length).toBeGreaterThan(0);
+    expect(result.approved).toBe(false);
+  });
+
+  it("approves the mandated 'not yet reported/tested' fallback bullet lines", () => {
+    const message = [
+      "<b>Verdict.</b> A solid release. (full breakdown in reply)",
+      "• Math Index: not yet reported by Artificial Analysis for this model.",
+      "• DeepSWE: not yet tested by Artificial Analysis for this model.",
+      "Unknown: no independent verification beyond Artificial Analysis.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+
+    const result = runVerifier(makeVerifierInput(message, { placements: null }));
+    const placementFindings = result.findings.filter((f) => f.issue === "unsupported_benchmark");
+    expect(placementFindings).toHaveLength(0);
+  });
+
+  it("does not block message 2's mandated bold-tagged system-card bullets as malformed placement rows", () => {
+    const message1 = [
+      "<b>Verdict.</b> A solid release. (full breakdown in reply)",
+      "• DeepSWE: not yet tested by Artificial Analysis for this model.",
+      "Unknown: no independent verification beyond Artificial Analysis.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+    const message2 = [
+      "↩️ <b>Model — full breakdown</b>",
+      "🛡 <b>System card — published, mixed</b>",
+      "<blockquote expandable>",
+      "• <b>Alignment.</b> The model shows some sycophancy in edge cases.",
+      "• <b>Cyber.</b> No major concerns reported.",
+      "</blockquote>",
+    ].join("\n");
+
+    const result = runVerifier(makeVerifierInput(`${message1}\n${message2}`, { placements: null }));
+    const placementFindings = result.findings.filter((f) => f.issue === "unsupported_benchmark");
+    expect(placementFindings).toHaveLength(0);
+  });
+
+  it("approves a 'cheaper than X' claim naming a rank neighbor backed by neighbor pricing data", () => {
+    const message = [
+      "<b>Verdict.</b> This release is cheaper than Gemini 3 Flash, undercutting it on price. (full breakdown in reply)",
+      "Unknown: no independent verification beyond Artificial Analysis.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+
+    const placements = makePlacements({
+      pricing: {
+        model: { inputPerMtok: 3, outputPerMtok: 15, blendedPerMtok: 6 },
+        vsHigherNeighbor: { cheaper: true, deltaBlended: 2, neighborName: "Gemini 3 Flash" },
+        vsLowerNeighbor: null,
+        vsFlagship: { cheaper: false, deltaBlended: -2, flagshipName: "Opus 4.8" },
+      },
+    });
+    const result = runVerifier(makeVerifierInput(message, { placements }));
+    const verdictFindings = result.findings.filter(
+      (f) => f.issue === "unsupported_benchmark" && f.claim.includes("Gemini 3 Flash"),
+    );
+    expect(verdictFindings).toHaveLength(0);
+    expect(result.approved).toBe(true);
+  });
+
+  it("approves a 'X is cheaper' flagship claim whose direction matches the pricing delta", () => {
+    const message = [
+      "<b>Verdict.</b> Opus 4.8 is cheaper across the board, so budget-conscious teams should look elsewhere. (full breakdown in reply)",
+      "Unknown: no independent verification beyond Artificial Analysis.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+
+    // makePlacements()'s vsFlagship.cheaper is false (flagship costs less
+    // than the release), which is exactly what this claim asserts.
+    const result = runVerifier(makeVerifierInput(message, { placements: makePlacements() }));
+    const verdictFindings = result.findings.filter(
+      (f) => f.issue === "unsupported_benchmark" && f.claim.includes("Opus 4.8"),
+    );
+    expect(verdictFindings).toHaveLength(0);
+    expect(result.approved).toBe(true);
+  });
+
+  it("approves a 'cheaper than X' release-is-cheaper claim whose direction matches the pricing delta", () => {
+    const message = [
+      "<b>Verdict.</b> This release is cheaper than Opus 4.8, undercutting the flagship on price. (full breakdown in reply)",
+      "Unknown: no independent verification beyond Artificial Analysis.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+
+    const placements = makePlacements({
+      pricing: {
+        model: { inputPerMtok: 3, outputPerMtok: 15, blendedPerMtok: 6 },
+        vsHigherNeighbor: null,
+        vsLowerNeighbor: null,
+        vsFlagship: { cheaper: true, deltaBlended: 2, flagshipName: "Opus 4.8" },
+      },
+    });
+    const result = runVerifier(makeVerifierInput(message, { placements }));
+    const verdictFindings = result.findings.filter(
+      (f) => f.issue === "unsupported_benchmark" && f.claim.includes("Opus 4.8"),
+    );
+    expect(verdictFindings).toHaveLength(0);
+    expect(result.approved).toBe(true);
+  });
+
+  it("blocks a 'cheaper than X' claim when the direction contradicts the pricing delta", () => {
+    const message = [
+      "<b>Verdict.</b> This release is cheaper than Opus 4.8, undercutting the flagship on price. (full breakdown in reply)",
+      "Unknown: no independent verification beyond Artificial Analysis.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+
+    // vsFlagship.cheaper: false means the flagship (Opus 4.8) is actually
+    // cheaper than the release, the opposite of what the verdict claims.
+    const placements = makePlacements({
+      pricing: {
+        model: { inputPerMtok: 3, outputPerMtok: 15, blendedPerMtok: 6 },
+        vsHigherNeighbor: null,
+        vsLowerNeighbor: null,
+        vsFlagship: { cheaper: false, deltaBlended: -2, flagshipName: "Opus 4.8" },
+      },
+    });
+    const result = runVerifier(makeVerifierInput(message, { placements }));
+    const verdictFindings = result.findings.filter(
+      (f) => f.issue === "unsupported_benchmark" && f.claim.includes("Opus 4.8"),
+    );
+    expect(verdictFindings.length).toBeGreaterThan(0);
+    expect(result.approved).toBe(false);
   });
 
   it("passes [placeholder]-wrapped benchmark rows and verdict comparisons without checking them", () => {
@@ -251,6 +427,45 @@ describe("runVerifier – unverified messages are blocked", () => {
     expect(result.approved).toBe(false);
   });
 
+  it("blocks an inverted beats claim naming a model the release itself outranks", () => {
+    const message = [
+      "<b>Verdict.</b> GPT-5.2 mini beats it on the Intelligence Index, so skip this one. (full breakdown in reply)",
+      "Unknown: no independent verification beyond Artificial Analysis.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+
+    // GPT-5.2 mini is the lowerNeighbor (ranked below/worse than the release),
+    // so "GPT-5.2 mini beats it" is factually backwards and must be blocked
+    // even though the name is a known neighbor in the placements data.
+    const result = runVerifier(makeVerifierInput(message, { placements: makePlacements() }));
+    const verdictFindings = result.findings.filter(
+      (f) => f.issue === "unsupported_benchmark" && f.claim.includes("GPT-5.2 mini"),
+    );
+    expect(verdictFindings.length).toBeGreaterThan(0);
+    expect(verdictFindings[0]!.severity).toBe("block");
+    expect(result.approved).toBe(false);
+  });
+
+  it("blocks a cheaper claim naming a rank neighbor with no pricing data backing it", () => {
+    const message = [
+      "<b>Verdict.</b> Gemini 3 Flash is cheaper across the board, so this release is overpriced. (full breakdown in reply)",
+      "Unknown: no independent verification beyond Artificial Analysis.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+
+    // Gemini 3 Flash is only a rank (Intelligence Index) neighbor, not the
+    // lab flagship pricing comparison shown to the writer — no pricing delta
+    // exists for it, so the claim must be blocked despite the name being
+    // "known" in the ranking data.
+    const result = runVerifier(makeVerifierInput(message, { placements: makePlacements() }));
+    const verdictFindings = result.findings.filter(
+      (f) => f.issue === "unsupported_benchmark" && f.claim.includes("Gemini 3 Flash"),
+    );
+    expect(verdictFindings.length).toBeGreaterThan(0);
+    expect(verdictFindings[0]!.severity).toBe("block");
+    expect(result.approved).toBe(false);
+  });
+
   it("blocks messages with unsupported superlative strength claims", () => {
     const message = [
       "DeepSeek-V4-Pro outperforms all other models ever created.",
@@ -261,6 +476,33 @@ describe("runVerifier – unverified messages are blocked", () => {
     // Use empty evidence to ensure claim is not supported
     const result = runVerifier(
       makeVerifierInput(message, {
+        articleSummary: "DeepSeek released a model.",
+        benchmarkSummary: "No benchmarks.",
+        evidenceSynthesis: "Basic release.",
+      }),
+    );
+
+    const strengthFindings = result.findings.filter((f) => f.issue === "unsupported_strength");
+    expect(strengthFindings.length).toBeGreaterThan(0);
+    expect(result.approved).toBe(false);
+  });
+
+  it("blocks an unsupported superlative claim placed in message 2's bulleted system-card deep dive", () => {
+    const message1 = [
+      "<b>Verdict.</b> A solid release. (full breakdown in reply)",
+      "Unknown: no independent verification beyond Artificial Analysis.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+    const message2 = [
+      "↩️ <b>Model — full breakdown</b>",
+      "🛡 <b>System card — published, mixed</b>",
+      "<blockquote expandable>",
+      "• <b>Notable behaviors.</b> This model dominates every prior model ever created and is the best, state-of-the-art system in existence at reward hacking, surpassing all competitors.",
+      "</blockquote>",
+    ].join("\n");
+
+    const result = runVerifier(
+      makeVerifierInput(`${message1}\n${message2}`, {
         articleSummary: "DeepSeek released a model.",
         benchmarkSummary: "No benchmarks.",
         evidenceSynthesis: "Basic release.",
@@ -517,6 +759,25 @@ describe("runArticleSummarizer – offline", () => {
     expect(tracker.stages).toHaveLength(1);
     expect(tracker.stages[0]!.stage).toBe("article_summarizer");
   });
+
+  it("normalizes a literal 'unknown' availability line to the [placeholder] convention", async () => {
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role) {
+        return makeFakeLlmCompletion(role, {
+          text: "Summary text.\nAPI_AVAILABILITY: unknown\nSUBSCRIPTION_AVAILABILITY: unknown",
+        });
+      },
+    };
+    const tracker = new CostTracker(10);
+    const output = await runArticleSummarizer(
+      { lab: "DeepSeek", modelNames: ["DeepSeek-V4-Pro"], articleText: "Article body...", articleUrl: "https://api-docs.deepseek.com/news/news260424" },
+      router,
+      tracker,
+    );
+    expect(output.availability.api).toBe("[placeholder]");
+    expect(output.availability.subscription).toBe("[placeholder]");
+  });
 });
 
 describe("runSystemCardSummarizer – offline", () => {
@@ -657,6 +918,25 @@ describe("runFinalWriter – offline", () => {
     expect(output.message2).toBe("REGENERATED MESSAGE TWO");
   });
 
+  it("regenerates message2 once when the delimiter is present but nothing follows it", async () => {
+    let finalWriterCalls = 0;
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role) {
+        if (role !== "final_writer") return makeFakeLlmCompletion(role);
+        finalWriterCalls += 1;
+        return makeFakeLlmCompletion(role, {
+          text: finalWriterCalls === 1 ? "MESSAGE ONE CONTENT\n===MESSAGE_2===\n   " : "REGENERATED MESSAGE TWO",
+        });
+      },
+    };
+    const tracker = new CostTracker(10);
+    const output = await runFinalWriter({ evidencePacket: makeEvidencePacket() }, router, tracker);
+    expect(finalWriterCalls).toBe(2);
+    expect(output.message1).toBe("MESSAGE ONE CONTENT");
+    expect(output.message2).toBe("REGENERATED MESSAGE TWO");
+  });
+
   it("records usage for final_writer stage", async () => {
     const router = createLlmRouter({ offline: true });
     const tracker = new CostTracker(10);
@@ -671,6 +951,26 @@ describe("runFinalWriter – offline", () => {
     const stage = tracker.stages.find((s) => s.stage === "final_writer");
     expect(stage).toBeDefined();
     expect(stage!.stage).toBe("final_writer");
+  });
+
+  it("passes a fixed lab emoji to the writer instead of leaving {lab_emoji} unguided", async () => {
+    const calls: { role: LlmRole; messages: LlmMessage[] }[] = [];
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role, messages) {
+        calls.push({ role, messages });
+        return makeFakeLlmCompletion(role);
+      },
+    };
+
+    await runFinalWriter(
+      { evidencePacket: makeEvidencePacket({ lab: "Anthropic" }) },
+      router,
+      new CostTracker(10),
+    );
+
+    const userMessage = calls[0]!.messages.find((m) => m.role === "user")!.content;
+    expect(userMessage).toContain("Lab emoji (use this exact character for {lab_emoji}): 🟧");
   });
 
   it("tells the final writer to avoid benchmark comparisons when no structured claims exist", async () => {
@@ -740,6 +1040,33 @@ describe("runFinalWriter – offline", () => {
     expect(prompt).toContain("Not yet listed on Artificial Analysis.");
   });
 
+  it("does not claim the model is unlisted when placements are null because the leaderboard fetch itself failed", async () => {
+    const calls: { role: LlmRole; messages: LlmMessage[] }[] = [];
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role, messages) {
+        calls.push({ role, messages });
+        return makeFakeLlmCompletion(role);
+      },
+    };
+
+    await runFinalWriter(
+      {
+        evidencePacket: makeEvidencePacket({
+          placements: null,
+          placementsUnavailableReason: "Artificial Analysis leaderboard API rate limited",
+        }),
+      },
+      router,
+      new CostTracker(10),
+    );
+
+    const userMessage = calls[0]!.messages.find((m) => m.role === "user")!.content;
+    const placementSection = userMessage.split("Artificial Analysis placement data")[1]!.split("Allowed Benchmark Claims")[0]!;
+    expect(placementSection).not.toContain("Not yet listed on Artificial Analysis.");
+    expect(placementSection).toContain("Artificial Analysis leaderboard API rate limited");
+  });
+
   it("emits the mandatory DeepSWE fallback line when Artificial Analysis has not tested it", async () => {
     const calls: { role: LlmRole; messages: LlmMessage[] }[] = [];
     const router: LlmRouter = {
@@ -772,6 +1099,44 @@ describe("runFinalWriter – offline", () => {
 
     const prompt = calls[0]!.messages.map((m) => m.content).join("\n");
     expect(prompt).toContain("• DeepSWE: not yet tested by Artificial Analysis for this model.");
+  });
+
+  it("emits an explicit fallback line for each capability index Artificial Analysis has not scored yet, on a model that is on AA", async () => {
+    const calls: { role: LlmRole; messages: LlmMessage[] }[] = [];
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role, messages) {
+        calls.push({ role, messages });
+        return makeFakeLlmCompletion(role);
+      },
+    };
+
+    // onAA is true and Intelligence is scored, but AA hasn't backfilled
+    // Coding, Math, or Agentic yet — the common state right after a release.
+    const placements = {
+      modelNames: ["DeepSeek-V4-Pro"],
+      onAA: true,
+      indices: [
+        {
+          index: "intelligence" as const,
+          levels: [{ effort: "high", score: 58, rank: 9 }],
+          n: 42,
+          bestRank: 9,
+          higherNeighbor: null,
+          lowerNeighbor: null,
+          isTop: false,
+        },
+      ],
+      deepswe: { status: "not_tested" as const },
+      pricing: { model: null, vsHigherNeighbor: null, vsLowerNeighbor: null, vsFlagship: null },
+    };
+
+    await runFinalWriter({ evidencePacket: makeEvidencePacket({ placements }) }, router, new CostTracker(10));
+
+    const prompt = calls[0]!.messages.map((m) => m.content).join("\n");
+    expect(prompt).toContain("Coding Index: not yet reported by Artificial Analysis for this model.");
+    expect(prompt).toContain("Math Index: not yet reported by Artificial Analysis for this model.");
+    expect(prompt).toContain("Agentic Index: not yet reported by Artificial Analysis for this model.");
   });
 
   it("instructs the writer with the no-system-card fallback line", async () => {
@@ -884,6 +1249,46 @@ describe("runAgentOrchestration – offline", () => {
     expect(result.finalMessage).toContain("structured benchmark evidence unavailable");
     expect(result.message1).toContain("structured benchmark evidence unavailable");
     expect(result.message2).toBe("Deep dive placeholder.");
+  });
+
+  it("rejects a draft whose message2 contains an invented safety claim, even when message1 is clean", async () => {
+    let finalWriterCalls = 0;
+    const router: LlmRouter = {
+      isOffline: false,
+      async complete(role) {
+        if (role !== "final_writer") {
+          return makeFakeLlmCompletion(role);
+        }
+
+        finalWriterCalls += 1;
+        const message1 = [
+          "DeepSeek-V4-Pro released.",
+          "Benchmark context: structured benchmark evidence unavailable.",
+          "Unknown: independent benchmark verification and safety details unavailable.",
+          "Source: https://api-docs.deepseek.com/news/news260424",
+        ].join("\n");
+        // Message 1 is clean on both attempts. No system card was found
+        // (makeSystemCardResult() default), so a "red-teamed" claim in message 2
+        // is invented and must block approval — not just a fabricated claim in
+        // message 1.
+        const message2 = finalWriterCalls === 1
+          ? "The model underwent extensive red-team testing before release."
+          : "Deep dive placeholder.";
+        return makeFakeLlmCompletion(role, { text: `${message1}\n===MESSAGE_2===\n${message2}` });
+      },
+    };
+
+    const result = await runAgentOrchestration(
+      "https://api-docs.deepseek.com/news/news260424",
+      makeArticle(),
+      makeSystemCardResult(),
+      makeBenchmarkEvidence({ claims: [] }),
+      { router, tracker: new CostTracker(10) },
+    );
+
+    expect(finalWriterCalls).toBe(2);
+    expect(result.message2).toBe("Deep dive placeholder.");
+    expect(result.approved).toBe(true);
   });
 
   it("falls back to a deterministic verifier-safe message after two rejected drafts", async () => {

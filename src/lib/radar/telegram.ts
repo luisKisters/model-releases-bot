@@ -1,5 +1,4 @@
-import type { ReleaseNote } from "./messages";
-import { renderReleaseNoteForTelegram, canSendReleaseNote, renderSourceFailureAlert } from "./messages";
+import { renderSourceFailureAlert } from "./messages";
 import type { SourceFailureAlert } from "./messages";
 import { decodeEntities, filterModelNamesForLab, normalizeWhitespace } from "./text";
 
@@ -36,22 +35,6 @@ export type TelegramSendDecision = {
 
 export function telegramConfigured() {
   return Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
-}
-
-export async function sendReleaseNote(
-  note: ReleaseNote,
-  fetchImpl: typeof fetch = fetch,
-): Promise<{ ok: boolean; blocked: boolean; reason?: string; telegramResult?: TelegramResult }> {
-  if (!canSendReleaseNote(note)) {
-    return {
-      ok: false,
-      blocked: true,
-      reason: `Verifier rejected: ${note.verifierFindings.length} finding(s). Message not sent.`,
-    };
-  }
-  const text = renderReleaseNoteForTelegram(note);
-  const telegramResult = await sendTelegramMessage(text, fetchImpl);
-  return { ok: telegramResult.ok, blocked: false, telegramResult };
 }
 
 export async function sendSourceFailureAlert(

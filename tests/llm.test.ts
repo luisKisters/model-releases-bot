@@ -397,7 +397,7 @@ describe("computeEstimatedCostUsd", () => {
 
   it("combines input and output cost for Kimi pricing", () => {
     const cost = computeEstimatedCostUsd(1_000_000, 1_000_000, 0, OPENROUTER_KIMI_PRICING);
-    expect(cost).toBeCloseTo(1.00 + 3.00, 6);
+    expect(cost).toBeCloseTo(OPENROUTER_KIMI_PRICING.inputPerMillion + OPENROUTER_KIMI_PRICING.outputPerMillion, 6);
   });
 
   it("returns 0 for zero tokens", () => {

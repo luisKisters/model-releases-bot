@@ -308,6 +308,46 @@ describe("queryArtificialAnalysis – available benchmark data", () => {
       expect(result.attribution).toContain("artificialanalysis.ai");
     }
   });
+
+  it("authenticates with x-api-key against /api/v2/data/llms/models, not the stale /api/models + Authorization: Bearer path", async () => {
+    const fetchImpl = makeAAFetch({ data: [{ model_id: "gpt-5", benchmark: "MMLU", value: 94.0 }] });
+    await queryArtificialAnalysis(["gpt-5"], ["language"], { apiKey: "test-key", fetchImpl });
+
+    const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/api/v2/data/llms/models");
+    expect(url).not.toContain("/api/models");
+    const headers = init.headers as Record<string, string>;
+    expect(headers["x-api-key"]).toBe("test-key");
+    expect(headers["Authorization"]).toBeUndefined();
+  });
+
+  it("does not fabricate an 'unknown'/null claim from real /api/v2/data/llms/models rows that have no benchmark/value field", async () => {
+    // Real payload shape (see docs/plans/format-v2-2-notes.md): rows carry
+    // evaluations/pricing, not a flat benchmark/value pair.
+    const rawData = {
+      data: [
+        {
+          id: "gpt-5",
+          name: "GPT-5",
+          slug: "gpt-5",
+          model_creator: { name: "OpenAI", slug: "openai" },
+          evaluations: { artificial_analysis_intelligence_index: 70 },
+          pricing: { price_1m_input_tokens: 1, price_1m_output_tokens: 2, price_1m_blended_3_to_1: 1.5 },
+        },
+      ],
+    };
+    const fetchImpl = makeAAFetch(rawData);
+
+    const result = await queryArtificialAnalysis(["gpt-5"], ["language"], {
+      apiKey: "test-key",
+      fetchImpl,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe("not_found");
+    }
+  });
 });
 
 // --- queryArtificialAnalysis – rate limits ---
@@ -723,7 +763,7 @@ describe("computePlacements", () => {
     const placements = computePlacements(leaderboard, ["o3"]);
     // Primary entry is o3 (high) — the effort level backing the best intelligence rank.
     expect(placements.pricing.model).toEqual({ inputPerMtok: 2.0, outputPerMtok: 8.0, blendedPerMtok: 4.4 });
-    expect(placements.pricing.vsHigherNeighbor).toEqual({ cheaper: true, deltaBlended: 4.6 });
+    expect(placements.pricing.vsHigherNeighbor).toEqual({ cheaper: true, deltaBlended: 4.6, neighborName: "Claude Opus 4.8" });
     expect(placements.pricing.vsFlagship).toEqual({
       cheaper: false,
       deltaBlended: -3.2,
@@ -734,6 +774,147 @@ describe("computePlacements", () => {
   it("has no flagship comparison when the lab has only one model on the leaderboard", async () => {
     const leaderboard = await loadFixtureLeaderboard();
     const placements = computePlacements(leaderboard, ["Claude Opus 4.8"]);
+    expect(placements.pricing.vsFlagship).toBeNull();
+  });
+
+  it("does not cross-attribute a sibling model's score via substring matching", () => {
+    const leaderboard: AALeaderboard = {
+      entries: [
+        {
+          id: "gpt-5",
+          name: "GPT-5",
+          slug: "gpt-5",
+          baseName: "GPT-5",
+          effort: null,
+          labName: "OpenAI",
+          labSlug: "openai",
+          scores: { intelligence: 60 },
+          deepswe: null,
+          pricing: { inputPerMtok: 2, outputPerMtok: 8, blendedPerMtok: 4 },
+        },
+        {
+          id: "gpt-5-mini",
+          name: "GPT-5 Mini",
+          slug: "gpt-5-mini",
+          baseName: "GPT-5 Mini",
+          effort: null,
+          labName: "OpenAI",
+          labSlug: "openai",
+          scores: { intelligence: 50 },
+          deepswe: null,
+          pricing: { inputPerMtok: 0.5, outputPerMtok: 2, blendedPerMtok: 1 },
+        },
+      ],
+    };
+
+    const placements = computePlacements(leaderboard, ["GPT-5"]);
+    const intelligence = placements.indices.find((p) => p.index === "intelligence");
+    // Own placement must only include the exact "GPT-5" entry, not "GPT-5 Mini".
+    expect(intelligence?.levels).toHaveLength(1);
+    expect(intelligence?.levels[0]).toEqual({ effort: null, score: 60, rank: 1 });
+    // "GPT-5 Mini" must be treated as a distinct neighbor, not folded into "own".
+    expect(intelligence?.lowerNeighbor).toEqual({ name: "GPT-5 Mini", effort: null, score: 50, rank: 2 });
+  });
+
+  it("matches a regex-truncated extracted name against a multi-word AA base name", () => {
+    // extractModelNames' catch-all regex has no \s, so article text extraction
+    // truncates "GPT-5.2 mini" down to "GPT-5.2" before it reaches computePlacements.
+    const leaderboard: AALeaderboard = {
+      entries: [
+        {
+          id: "gpt-5.2-mini",
+          name: "GPT-5.2 mini",
+          slug: "gpt-5-2-mini",
+          baseName: "GPT-5.2 mini",
+          effort: null,
+          labName: "OpenAI",
+          labSlug: "openai",
+          scores: { intelligence: 60 },
+          deepswe: null,
+          pricing: { inputPerMtok: 2, outputPerMtok: 8, blendedPerMtok: 4 },
+        },
+      ],
+    };
+
+    const placements = computePlacements(leaderboard, ["GPT-5.2"]);
+    expect(placements.onAA).toBe(true);
+    const intelligence = placements.indices.find((p) => p.index === "intelligence");
+    expect(intelligence?.levels).toHaveLength(1);
+    expect(intelligence?.levels[0]).toEqual({ effort: null, score: 60, rank: 1 });
+  });
+
+  it("does not apply the truncated-name fallback when the bare name is itself a distinct AA entry", () => {
+    // Same shape as the cross-attribution test above, but confirms the new
+    // qualifier-suffix fallback doesn't reopen it: since "GPT-5" is itself a
+    // real, separate leaderboard entry, "GPT-5 Mini" must not be folded in.
+    const leaderboard: AALeaderboard = {
+      entries: [
+        {
+          id: "gpt-5",
+          name: "GPT-5",
+          slug: "gpt-5",
+          baseName: "GPT-5",
+          effort: null,
+          labName: "OpenAI",
+          labSlug: "openai",
+          scores: { intelligence: 60 },
+          deepswe: null,
+          pricing: { inputPerMtok: 2, outputPerMtok: 8, blendedPerMtok: 4 },
+        },
+        {
+          id: "gpt-5-mini",
+          name: "GPT-5 Mini",
+          slug: "gpt-5-mini",
+          baseName: "GPT-5 Mini",
+          effort: null,
+          labName: "OpenAI",
+          labSlug: "openai",
+          scores: { intelligence: 50 },
+          deepswe: null,
+          pricing: { inputPerMtok: 0.5, outputPerMtok: 2, blendedPerMtok: 1 },
+        },
+      ],
+    };
+
+    const placements = computePlacements(leaderboard, ["GPT-5"]);
+    const intelligence = placements.indices.find((p) => p.index === "intelligence");
+    expect(intelligence?.levels).toHaveLength(1);
+    expect(intelligence?.levels[0]).toEqual({ effort: null, score: 60, rank: 1 });
+  });
+
+  it("does not attribute an unrelated lab's model as flagship when both lack creator metadata", () => {
+    const leaderboard: AALeaderboard = {
+      entries: [
+        {
+          id: "mystery-model-a",
+          name: "Mystery Model A",
+          slug: "mystery-model-a",
+          baseName: "Mystery Model A",
+          effort: null,
+          labName: "Unknown",
+          labSlug: "unknown",
+          scores: { intelligence: 60 },
+          deepswe: null,
+          pricing: { inputPerMtok: 2, outputPerMtok: 8, blendedPerMtok: 4 },
+        },
+        {
+          id: "mystery-model-b",
+          name: "Mystery Model B",
+          slug: "mystery-model-b",
+          baseName: "Mystery Model B",
+          effort: null,
+          labName: "Unknown",
+          labSlug: "unknown",
+          scores: { intelligence: 90 },
+          deepswe: null,
+          pricing: { inputPerMtok: 10, outputPerMtok: 30, blendedPerMtok: 16 },
+        },
+      ],
+    };
+
+    // Both entries lack model_creator and share the "unknown" labSlug fallback —
+    // "Mystery Model B" must never be reported as "Mystery Model A"'s lab flagship.
+    const placements = computePlacements(leaderboard, ["Mystery Model A"]);
     expect(placements.pricing.vsFlagship).toBeNull();
   });
 });

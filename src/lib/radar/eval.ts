@@ -206,6 +206,7 @@ function buildOfflineEvidencePacket(
     references: [{ url: fixture.url, kind: "article" as const, chunkIds: [] }],
     costTracker: tracker,
     placements: null,
+    placementsUnavailableReason: null,
     availability: AVAILABILITY_PLACEHOLDER,
   };
 }

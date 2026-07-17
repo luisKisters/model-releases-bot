@@ -55,6 +55,7 @@ function makePacket(overrides: Partial<EvidencePacket> = {}): EvidencePacket {
     ],
     costTracker: makeTracker(),
     placements: null,
+    placementsUnavailableReason: null,
     availability: { api: "[placeholder]", subscription: "[placeholder]" },
     ...overrides,
   };
