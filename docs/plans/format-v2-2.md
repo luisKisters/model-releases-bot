@@ -14,11 +14,16 @@ verification-independence rules still hold).
 
 Hard failures — the run is broken if any of these happen:
 
-- Any Telegram message is actually sent during this run. All pipeline runs use
-  `RADAR_TELEGRAM_SEND_ENABLED=false` / dry-run. Sending is enabled only after
-  explicit user approval, which is OUTSIDE this plan.
-- Anything is deployed to production (no `convex deploy` to prod, no pushes that
-  trigger `.github/workflows/deploy.yml` on main). Work stays on this branch.
+- Any Telegram message is actually sent during this run — not from local pipeline
+  runs, not from tests, not as a side effect of deploying. All pipeline runs use
+  `RADAR_TELEGRAM_SEND_ENABLED=false` / dry-run. Live sending is enabled only by
+  the user, manually, after this run ends.
+- `RADAR_TELEGRAM_SEND_ENABLED` is set to anything truthy on the production
+  Convex deployment, or any code path is added that sends a Telegram message on
+  deploy/startup/baseline poll ("test message", "deploy notification", etc.).
+- Direct `npx convex deploy` to production from this run. Production deploys
+  happen ONLY via the push to main in Task 7 (GitHub Actions), which is allowed
+  and intended.
 - Secrets are committed, printed to logs, or written into fixtures.
 - The final writer role is moved off OpenRouter Kimi, or analysis roles off DeepSeek.
 - The verifier is weakened to "always approve" instead of being taught the new
@@ -134,7 +139,7 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
 - [ ] Update all affected existing tests; full `npx vitest run` green,
       `npx tsc --noEmit` clean.
 
-## Task 7 — Validation run + cost report (STOP HERE)
+## Task 7 — Validation run + cost report + push to main
 
 - [ ] Pick 3 real recent model-release articles from tracked labs (fresh URLs or
       the replay-case URLs in `src/lib/radar/releaseMessages.ts`).
@@ -144,8 +149,27 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
 - [ ] Write `docs/plans/format-v2-2-report.md` containing: the 3 rendered message
       pairs (exact HTML as they would post), per-release per-stage cost breakdown
       (classifier, summarizers, synthesizer, writer, AA), total cost of the
-      validation run, projected monthly cost, any blockers from Task 0, and any
-      AA fields that turned out unavailable.
-- [ ] Commit everything on the plan branch. DO NOT deploy, DO NOT enable Telegram
-      send, DO NOT merge to main. The user reviews the report and approves (or
-      not) deployment manually. This is the end of the automated run.
+      validation run, projected monthly cost, any blockers from Task 0, any AA
+      fields that turned out unavailable, and a "How to go live" section (see
+      final checkbox).
+- [ ] Pre-push safety checks (all mandatory):
+      - `npx vitest run` and `npx tsc --noEmit` green.
+      - Verify `RADAR_TELEGRAM_SEND_ENABLED` on the PRODUCTION Convex deployment
+        is unset or false (`npx convex env list --prod` or equivalent with the
+        deploy key). If it is truthy, set it to false BEFORE pushing and note
+        this in the report.
+      - Grep-audit that no code path sends Telegram messages on deploy, startup,
+        or baseline polls, and that every release-send call is gated on
+        `RADAR_TELEGRAM_SEND_ENABLED`. The only pre-existing exception is the
+        source-failure alert after 10 consecutive poll failures, which is
+        operational and stays.
+- [ ] Merge the plan branch into main and PUSH to origin/main. This triggers the
+      GitHub Actions deploy (verify job, then Convex + Vercel). Watch the run
+      (`gh run watch` or `gh run list`) until green; if it fails, fix and re-push
+      until green. Because the send flag is false in production, the deployed
+      code runs pollers but sends NOTHING to Telegram.
+- [ ] Final checkbox = the "How to go live" section in the report must say
+      exactly: production already runs the new code; to go live after user
+      approval run `npx convex env set RADAR_TELEGRAM_SEND_ENABLED true` on the
+      production deployment (and nothing else). Include the command to flip it
+      back to false. This flip is done manually by the user, never by this run.
