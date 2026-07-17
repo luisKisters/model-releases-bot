@@ -1,0 +1,226 @@
+{
+  "_fixture_provenance": "NOT a live/raw capture of the Artificial Analysis API — this sandbox has no ARTIFICIAL_ANALYSIS_API_KEY available (see docs/plans/format-v2-2-notes.md). The base object shape and the o3-mini-style fields are taken verbatim from AA's own published API reference example (https://artificialanalysis.ai/api-reference, https://artificialanalysis.ai/data-api/docs). Sibling model rows and score values are synthetic, constructed to exercise computePlacements() test cases (multi-level model, single-level model, #1 model, DeepSWE absent from every row since it is not a documented AA field). Replace this file with a real stripped capture once a key is available.",
+  "status": 200,
+  "prompt_options": {
+    "parallel_queries": 1,
+    "prompt_length": "medium"
+  },
+  "data": [
+    {
+      "id": "f1a1a1a1-0001-0001-0001-000000000001",
+      "name": "Claude Opus 4.8",
+      "slug": "claude-opus-4-8",
+      "model_creator": { "id": "creator-anthropic", "name": "Anthropic", "slug": "anthropic" },
+      "evaluations": {
+        "artificial_analysis_intelligence_index": 72.4,
+        "artificial_analysis_coding_index": 68.9,
+        "artificial_analysis_math_index": 91.5,
+        "artificial_analysis_agentic_index": 66.2,
+        "mmlu_pro": 0.874,
+        "gpqa": 0.812,
+        "hle": 0.152,
+        "livecodebench": 0.803,
+        "scicode": 0.481,
+        "math_500": 0.981,
+        "aime": 0.89
+      },
+      "pricing": {
+        "price_1m_blended_3_to_1": 9.0,
+        "price_1m_input_tokens": 5.0,
+        "price_1m_output_tokens": 25.0
+      },
+      "median_output_tokens_per_second": 74.2,
+      "median_time_to_first_token_seconds": 1.1,
+      "median_time_to_first_answer_token": 1.1
+    },
+    {
+      "id": "f1a1a1a1-0002-0002-0002-000000000002",
+      "name": "o3 (high)",
+      "slug": "o3-high",
+      "model_creator": { "id": "creator-openai", "name": "OpenAI", "slug": "openai" },
+      "evaluations": {
+        "artificial_analysis_intelligence_index": 68.1,
+        "artificial_analysis_coding_index": 60.4,
+        "artificial_analysis_math_index": 90.0,
+        "artificial_analysis_agentic_index": 61.0,
+        "mmlu_pro": 0.83,
+        "gpqa": 0.79,
+        "hle": 0.11,
+        "livecodebench": 0.75,
+        "scicode": 0.44,
+        "math_500": 0.975,
+        "aime": 0.85
+      },
+      "pricing": {
+        "price_1m_blended_3_to_1": 4.4,
+        "price_1m_input_tokens": 2.0,
+        "price_1m_output_tokens": 8.0
+      },
+      "median_output_tokens_per_second": 95.0,
+      "median_time_to_first_token_seconds": 18.2,
+      "median_time_to_first_answer_token": 18.2
+    },
+    {
+      "id": "f1a1a1a1-0003-0003-0003-000000000003",
+      "name": "o3 (low)",
+      "slug": "o3-low",
+      "model_creator": { "id": "creator-openai", "name": "OpenAI", "slug": "openai" },
+      "evaluations": {
+        "artificial_analysis_intelligence_index": 58.3,
+        "artificial_analysis_coding_index": 50.1,
+        "artificial_analysis_math_index": 80.2,
+        "artificial_analysis_agentic_index": 49.5,
+        "mmlu_pro": 0.77,
+        "gpqa": 0.71,
+        "hle": 0.06,
+        "livecodebench": 0.62,
+        "scicode": 0.35,
+        "math_500": 0.94,
+        "aime": 0.7
+      },
+      "pricing": {
+        "price_1m_blended_3_to_1": 1.925,
+        "price_1m_input_tokens": 1.1,
+        "price_1m_output_tokens": 4.4
+      },
+      "median_output_tokens_per_second": 153.831,
+      "median_time_to_first_token_seconds": 14.939,
+      "median_time_to_first_answer_token": 14.939
+    },
+    {
+      "id": "f1a1a1a1-0004-0004-0004-000000000004",
+      "name": "GPT-5.2 mini",
+      "slug": "gpt-5-2-mini",
+      "model_creator": { "id": "creator-openai", "name": "OpenAI", "slug": "openai" },
+      "evaluations": {
+        "artificial_analysis_intelligence_index": 63.7,
+        "artificial_analysis_coding_index": 56.2,
+        "artificial_analysis_math_index": 85.6,
+        "artificial_analysis_agentic_index": 54.0,
+        "mmlu_pro": 0.8,
+        "gpqa": 0.75,
+        "hle": 0.09,
+        "livecodebench": 0.7,
+        "scicode": 0.4,
+        "math_500": 0.96,
+        "aime": 0.78
+      },
+      "pricing": {
+        "price_1m_blended_3_to_1": 1.2,
+        "price_1m_input_tokens": 0.5,
+        "price_1m_output_tokens": 2.0
+      },
+      "median_output_tokens_per_second": 140.0,
+      "median_time_to_first_token_seconds": 5.0,
+      "median_time_to_first_answer_token": 5.0
+    },
+    {
+      "id": "f1a1a1a1-0005-0005-0005-000000000005",
+      "name": "Gemini 3 Flash",
+      "slug": "gemini-3-flash",
+      "model_creator": { "id": "creator-google", "name": "Google", "slug": "google" },
+      "evaluations": {
+        "artificial_analysis_intelligence_index": 55.0,
+        "artificial_analysis_coding_index": 47.5,
+        "artificial_analysis_math_index": 76.0,
+        "artificial_analysis_agentic_index": 45.0,
+        "mmlu_pro": 0.74,
+        "gpqa": 0.68,
+        "hle": 0.05,
+        "livecodebench": 0.58,
+        "scicode": 0.31,
+        "math_500": 0.9,
+        "aime": 0.62
+      },
+      "pricing": {
+        "price_1m_blended_3_to_1": 0.6,
+        "price_1m_input_tokens": 0.2,
+        "price_1m_output_tokens": 1.0
+      },
+      "median_output_tokens_per_second": 210.0,
+      "median_time_to_first_token_seconds": 0.8,
+      "median_time_to_first_answer_token": 0.8
+    },
+    {
+      "id": "f1a1a1a1-0006-0006-0006-000000000006",
+      "name": "DeepSeek V4",
+      "slug": "deepseek-v4",
+      "model_creator": { "id": "creator-deepseek", "name": "DeepSeek", "slug": "deepseek" },
+      "evaluations": {
+        "artificial_analysis_intelligence_index": 61.0,
+        "artificial_analysis_coding_index": 58.0,
+        "artificial_analysis_math_index": 88.0,
+        "artificial_analysis_agentic_index": 62.5,
+        "mmlu_pro": 0.79,
+        "gpqa": 0.73,
+        "hle": 0.08,
+        "livecodebench": 0.68,
+        "scicode": 0.39,
+        "math_500": 0.955,
+        "aime": 0.8
+      },
+      "pricing": {
+        "price_1m_blended_3_to_1": 0.5,
+        "price_1m_input_tokens": 0.25,
+        "price_1m_output_tokens": 1.0
+      },
+      "median_output_tokens_per_second": 60.0,
+      "median_time_to_first_token_seconds": 2.0,
+      "median_time_to_first_answer_token": 2.0
+    },
+    {
+      "id": "f1a1a1a1-0007-0007-0007-000000000007",
+      "name": "Grok 5",
+      "slug": "grok-5",
+      "model_creator": { "id": "creator-xai", "name": "xAI", "slug": "xai" },
+      "evaluations": {
+        "artificial_analysis_intelligence_index": 66.0,
+        "artificial_analysis_coding_index": 63.0,
+        "artificial_analysis_math_index": 87.0,
+        "artificial_analysis_agentic_index": 57.0,
+        "mmlu_pro": 0.82,
+        "gpqa": 0.77,
+        "hle": 0.1,
+        "livecodebench": 0.72,
+        "scicode": 0.42,
+        "math_500": 0.965,
+        "aime": 0.82
+      },
+      "pricing": {
+        "price_1m_blended_3_to_1": 3.0,
+        "price_1m_input_tokens": 1.5,
+        "price_1m_output_tokens": 6.0
+      },
+      "median_output_tokens_per_second": 88.0,
+      "median_time_to_first_token_seconds": 1.5,
+      "median_time_to_first_answer_token": 1.5
+    },
+    {
+      "id": "f1a1a1a1-0008-0008-0008-000000000008",
+      "name": "Kimi K2.6",
+      "slug": "kimi-k2-6",
+      "model_creator": { "id": "creator-moonshot", "name": "Moonshot AI", "slug": "moonshotai" },
+      "evaluations": {
+        "artificial_analysis_intelligence_index": 57.5,
+        "artificial_analysis_coding_index": 52.0,
+        "artificial_analysis_math_index": 81.0,
+        "artificial_analysis_agentic_index": 51.0,
+        "mmlu_pro": 0.76,
+        "gpqa": 0.7,
+        "hle": 0.07,
+        "livecodebench": 0.63,
+        "scicode": 0.34,
+        "math_500": 0.93,
+        "aime": 0.71
+      },
+      "pricing": {
+        "price_1m_blended_3_to_1": 0.4,
+        "price_1m_input_tokens": 0.15,
+        "price_1m_output_tokens": 0.8
+      },
+      "median_output_tokens_per_second": 100.0,
+      "median_time_to_first_token_seconds": 1.0,
+      "median_time_to_first_answer_token": 1.0
+    }
+  ]
+}

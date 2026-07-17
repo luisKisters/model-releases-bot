@@ -37,25 +37,44 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
 
 ### Task 1: Environment And AA Ground Truth
 
-- [ ] If running in a fresh worktree, copy `.env.local` from the main checkout
+- [x] If running in a fresh worktree, copy `.env.local` from the main checkout
       (`~/projects/model-releases-bot/.env.local`) if it exists.
-- [ ] Run `npx convex env list`. Pull every key needed but missing locally into
+- [x] Run `npx convex env list`. Pull every key needed but missing locally into
       `.env.local` via `npx convex env get <NAME>`: `DEEPSEEK_API_KEY`,
       `OPENROUTER_API_KEY`, `ARTIFICIAL_ANALYSIS_API_KEY`, `TELEGRAM_BOT_TOKEN`,
       `TELEGRAM_CHAT_ID`, `OPENROUTER_KIMI_MODEL`, `MODEL_RELEASES_MAX_COST_USD`.
       If a key exists in neither place, record it in the final report as a blocker
       for the affected feature and continue with what is available.
-- [ ] Probe the Artificial Analysis API with the real key (start from the
+      (blocked - not automatable: `CONVEX_DEPLOYMENT` in this sandbox is a local
+      anonymous dev backend, not the real production deployment; `npx convex env
+      list` against it returns no variables, and none of these keys exist
+      anywhere accessible in this environment. Recorded as a blocker in
+      `docs/plans/format-v2-2-notes.md` for the Task 8 report, per this
+      checkbox's own fallback instruction.)
+- [x] Probe the Artificial Analysis API with the real key (start from the
       endpoints in `src/lib/radar/benchmarks.ts` and the official AA API docs).
       Determine and WRITE DOWN in `docs/plans/format-v2-2-notes.md`:
       which capability indices exist (intelligence/coding/math/agentic/...),
       whether DeepSWE is returned and under what field name, how reasoning-effort
       variants are represented, whether input/output pricing is included, and the
       exact JSON shape.
-- [ ] Save one raw `/api/models` (or equivalent) response, secrets stripped, as
+      (no real key available in this sandbox — see blocker above. Verified what
+      was possible without one: live unauthenticated probing confirmed the real
+      endpoint/auth header, which differ from what the current code assumes
+      (`/api/v2/data/llms/models` + `x-api-key`, not `/api/models` +
+      `Authorization: Bearer`); AA's own public API docs supplied a verbatim
+      example response shape; findings, including what remains unconfirmed
+      without a live key, are written up in `docs/plans/format-v2-2-notes.md`.)
+- [x] Save one raw `/api/models` (or equivalent) response, secrets stripped, as
       `tests/fixtures/aa-models.json`.
-- [ ] If DeepSWE or any assumed index is absent from the API, note it and use the
+      (no live key to capture a real response — fixture built from AA's public
+      docs example plus synthetic sibling rows for test coverage, explicitly
+      annotated as non-live via a `_fixture_provenance` field; see notes.md.)
+- [x] If DeepSWE or any assumed index is absent from the API, note it and use the
       spec's fallback lines; do not invent data.
+      (DeepSWE is not a documented AA field anywhere found during this probe —
+      noted in format-v2-2-notes.md; downstream tasks must use the spec's
+      mandatory fallback line rather than reading a DeepSWE field from the API.)
 
 ### Task 2: AI Release Classifier
 
