@@ -212,8 +212,7 @@ function buildOfflineEvidencePacket(
 
 // Build a synthetic final message from fixture data. Designed to pass verifier:
 // - Includes the article URL (satisfies checkStaleArticleUrl)
-// - Includes weakness/unknown language (satisfies checkMissingWeaknesses)
-// - No invented benchmark scores (satisfies checkBenchmarkClaims)
+// - No benchmark rows or verdict beats/cheaper pairings (satisfies checkBenchmarkClaims / checkVerdictSupported)
 // - No superlatives (satisfies checkUnsupportedStrengths)
 // - No safety jargon when system card not found (satisfies checkSafetyInvention)
 function buildOfflineFinalMessage(

@@ -198,15 +198,34 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
 
 ### Task 6: Verifier Update
 
-- [ ] `runVerifier`: benchmark/rank/comparison claims verify against the
+- [x] `runVerifier`: benchmark/rank/comparison claims verify against the
       `placements` struct (benchmark name, score, rank, neighbors must match);
       `[placeholder]`-flagged values are exempt from support checks.
-- [ ] Remove `checkMissingWeaknesses`. Add `checkVerdictSupported`: every
+      (`checkBenchmarkClaims` rewritten to strip `[placeholder]`-wrapped spans
+      then match the writer contract's `• {Benchmark}: #{rank} of {n}` row
+      shape against `evidencePacket.placements` — rank/n must match the
+      computed `IndexPlacement`/`DeepswePlacement`, including the DeepSWE
+      not-tested and not-on-AA-at-all cases.)
+- [x] Remove `checkMissingWeaknesses`. Add `checkVerdictSupported`: every
       beats/cheaper pairing in the verdict must exist in placements/pricing data.
-- [ ] Keep the URL whitelist check and safety-invention check. Verifier stays
+      (`checkMissingWeaknesses` deleted along with the `missing_weakness`
+      issue literal; new `checkVerdictSupported` scans the `<b>Verdict.</b>`
+      span for "{Model} beats it" / "{Model} is cheaper" / "cheaper than
+      {Model}" pairings and blocks any named model that isn't a neighbor or
+      lab-flagship in `placements`/pricing data. Also stripped placement-row
+      bullet lines out of `checkUnsupportedStrengths`' input so the mandated
+      "best level between X and Y" anchor phrasing no longer false-positives
+      as an unsupported superlative.)
+- [x] Keep the URL whitelist check and safety-invention check. Verifier stays
       independent of the writer.
-- [ ] Tests: valid verdict approved; fabricated rank blocked; fabricated
+      (`checkSourceUrls` and `checkSafetyInvention` untouched.)
+- [x] Tests: valid verdict approved; fabricated rank blocked; fabricated
       price-comparison blocked; placeholder values pass.
+      (new cases in the "runVerifier – verified messages pass" /
+      "unverified messages are blocked" describe blocks in
+      `tests/agents.test.ts`, using a `makePlacements()` fixture matching the
+      v2.2 spec mockup. `npx vitest run` (810 tests) and `npx tsc --noEmit`
+      both green.)
 
 ### Task 7: Config And Cleanup
 

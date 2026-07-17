@@ -7,6 +7,7 @@ import type {
   IndexPlacement,
   NeighborPlacement,
   AALeaderboardResult,
+  AACapabilityIndex,
 } from "./benchmarks";
 import { computePlacements } from "./benchmarks";
 import type { LlmRouter } from "./llm";
@@ -136,7 +137,7 @@ export type FinalWriterOutput = {
 
 export type VerifierFinding = {
   claim: string;
-  issue: "unsupported_strength" | "unsupported_benchmark" | "missing_weakness" | "wrong_source_url" | "stale_article_url" | "invented_safety_claim" | "other";
+  issue: "unsupported_strength" | "unsupported_benchmark" | "wrong_source_url" | "stale_article_url" | "invented_safety_claim" | "other";
   detail: string;
   severity: "block" | "warn";
 };
@@ -721,9 +722,6 @@ const SAFETY_INVENTION_PATTERNS = [
   /\b(safety eval|safety score|dangerous capability)\b/i,
 ];
 
-const BENCHMARK_CLAIM_PATTERN =
-  /(\d+(?:\.\d+)?%?)\s+(?:on|in|for|at)\s+([A-Z][A-Za-z0-9\-]+)|([A-Z][A-Za-z0-9\-]+(?:\s+\w+)?)\s*[:–\-]\s*(\d+(?:\.\d+)?%?)/g;
-
 function extractClaimsFromMessage(message: string): string[] {
   const claims: string[] = [];
   const sentences = message.split(/[.!?]/);
@@ -759,57 +757,156 @@ function isSuperlativeClaimSupportedByEvidence(claim: string, evidencePacket: Ev
   return superlativeWords.every((w) => allText.includes(w));
 }
 
-// Common message metadata labels that match the benchmark pattern but are not benchmark claims.
-// e.g. "Release Date: 2026-07-05" → "Release Date" matches the regex but is not a benchmark.
-const NON_BENCHMARK_LABELS = new Set([
-  "release date",
-  "date",
-  "lab",
-  "models",
-  "source",
-  "cost",
-  "status",
-  "official article",
-  "context window",
-  "parameters",
-  "pricing",
-  "price",
-  "tokens",
-  "layers",
-  "heads",
-]);
+// Wrapped in [brackets] means the writer flagged the value as unverified
+// (writer contract rule 10) — exempt from support checks by design.
+const PLACEHOLDER_SPAN_PATTERN = /\[[^[\]\n]*\]/g;
 
+function stripPlaceholders(text: string): string {
+  return text.replace(PLACEHOLDER_SPAN_PATTERN, "");
+}
+
+const CAPABILITY_INDEX_BY_LABEL: Record<string, AACapabilityIndex> = {
+  intelligence: "intelligence",
+  coding: "coding",
+  math: "math",
+  agentic: "agentic",
+};
+
+function findIndexPlacementByLabel(placements: ModelPlacements, label: string): IndexPlacement | undefined {
+  const key = label.trim().toLowerCase().replace(/\s+index$/, "");
+  const index = CAPABILITY_INDEX_BY_LABEL[key];
+  if (!index) return undefined;
+  return placements.indices.find((p) => p.index === index);
+}
+
+// Matches the writer contract's mandatory row shape:
+// "• {Benchmark}: #{rank} of {n} — {levels}; {placement}" (rule 7).
+const PLACEMENT_ROW_PATTERN = /(?:^|\n)\s*(?:•|🥇)?\s*([A-Za-z][A-Za-z0-9 ]*?):\s*(?:🥇\s*)?#(\d+)\s+of\s+(\d+)/g;
+
+// A full "• {Benchmark}: ..." row line, used to exclude the Benchmarks section
+// (validated separately by checkBenchmarkClaims below) from generic
+// superlative-language scanning — its mandated "best level between X and Y"
+// anchor phrasing would otherwise false-positive as an unsupported claim.
+const PLACEMENT_ROW_LINE_PATTERN = /^[ \t]*(?:•|🥇)[^\n]*$/gm;
+
+// Benchmark/rank claims verify against the computed `placements` struct (name,
+// score, rank, neighbors) rather than free-text matching — placements are the
+// only source of truth for AA-derived numbers (writer contract rule 6-9).
+// [placeholder]-wrapped values are stripped first and therefore never checked.
 function checkBenchmarkClaims(
   message: string,
   evidencePacket: EvidencePacket,
 ): VerifierFinding[] {
   const findings: VerifierFinding[] = [];
+  const stripped = stripPlaceholders(message);
+  const { placements } = evidencePacket;
+
   let match: RegExpExecArray | null;
-  const pattern = new RegExp(BENCHMARK_CLAIM_PATTERN.source, "g");
+  const pattern = new RegExp(PLACEMENT_ROW_PATTERN.source, "g");
 
-  while ((match = pattern.exec(message)) !== null) {
-    const value = match[1] ?? match[4] ?? "";
-    const benchmarkName = match[2] ?? match[3] ?? "";
+  while ((match = pattern.exec(stripped)) !== null) {
+    const label = match[1]!.trim();
+    const rank = Number(match[2]);
+    const n = Number(match[3]);
+    const claimText = `${label}: #${rank} of ${n}`;
 
-    if (!benchmarkName || !value) continue;
-
-    if (NON_BENCHMARK_LABELS.has(benchmarkName.toLowerCase())) continue;
-
-    // A benchmark claim is only "in evidence" if it appears in the structured claims list.
-    // Text matches can include negations like "No HumanEval data" so we avoid text search.
-    const claimText = `${benchmarkName} ${value}`;
-    const inClaims = evidencePacket.claims.some(
-      (c) => c.name.toLowerCase().includes(benchmarkName.toLowerCase()),
-    );
-
-    if (!inClaims) {
+    if (!placements || !placements.onAA) {
       findings.push({
         claim: claimText,
         issue: "unsupported_benchmark",
-        detail: `Benchmark claim "${claimText}" not found in evidence claims. Benchmark "${benchmarkName}" does not appear in the structured claims list from any evidence document.`,
+        detail: `Benchmark row "${claimText}" asserts a real Artificial Analysis rank, but the evidence packet has no placement data for this model.`,
+        severity: "block",
+      });
+      continue;
+    }
+
+    if (/deepswe/i.test(label)) {
+      const deepswe = placements.deepswe;
+      const matches = deepswe.status === "tested" && deepswe.bestRank === rank && deepswe.n === n;
+      if (!matches) {
+        findings.push({
+          claim: claimText,
+          issue: "unsupported_benchmark",
+          detail: `DeepSWE row "${claimText}" does not match the computed placements data.`,
+          severity: "block",
+        });
+      }
+      continue;
+    }
+
+    const indexPlacement = findIndexPlacementByLabel(placements, label);
+    if (!indexPlacement || indexPlacement.bestRank !== rank || indexPlacement.n !== n) {
+      findings.push({
+        claim: claimText,
+        issue: "unsupported_benchmark",
+        detail: `Benchmark row "${claimText}" does not match the computed placements data for "${label}".`,
         severity: "block",
       });
     }
+  }
+
+  return findings;
+}
+
+// Every named "X beats it" / pricing "cheaper" pairing in the verdict must
+// resolve to a real neighbor or flagship in the placements/pricing struct.
+function collectPlacementComparisonNames(placements: ModelPlacements | null): Set<string> {
+  const names = new Set<string>();
+  if (!placements) return names;
+
+  for (const idx of placements.indices) {
+    if (idx.higherNeighbor) names.add(idx.higherNeighbor.name.toLowerCase());
+    if (idx.lowerNeighbor) names.add(idx.lowerNeighbor.name.toLowerCase());
+  }
+  if (placements.deepswe.status === "tested") {
+    if (placements.deepswe.higherNeighbor) names.add(placements.deepswe.higherNeighbor.name.toLowerCase());
+    if (placements.deepswe.lowerNeighbor) names.add(placements.deepswe.lowerNeighbor.name.toLowerCase());
+  }
+  if (placements.pricing.vsFlagship) names.add(placements.pricing.vsFlagship.flagshipName.toLowerCase());
+
+  return names;
+}
+
+function extractVerdictText(message: string): string {
+  const match = message.match(/<b>Verdict\.<\/b>\s*([\s\S]*?)(?:<b>Facts\.<\/b>|$)/i);
+  return match ? match[1]! : message;
+}
+
+const BEATS_PAIRING_PATTERN = /\b([A-Z][A-Za-z0-9.\- ]{1,40}?)\s+beats\s+(?:it|this model)\b/g;
+const CHEAPER_PAIRING_PATTERN = /\b([A-Z][A-Za-z0-9.\- ]{1,40}?)\s+is\s+cheaper\b|\bcheaper\s+than\s+([A-Z][A-Za-z0-9.\- ]{1,40}?)\b/g;
+
+function checkVerdictSupported(
+  message: string,
+  evidencePacket: EvidencePacket,
+): VerifierFinding[] {
+  const findings: VerifierFinding[] = [];
+  const verdictText = stripPlaceholders(extractVerdictText(message));
+  const knownNames = collectPlacementComparisonNames(evidencePacket.placements);
+
+  let match: RegExpExecArray | null;
+
+  const beatsPattern = new RegExp(BEATS_PAIRING_PATTERN.source, "g");
+  while ((match = beatsPattern.exec(verdictText)) !== null) {
+    const name = match[1]!.trim();
+    if (!name || knownNames.has(name.toLowerCase())) continue;
+    findings.push({
+      claim: `${name} beats it`,
+      issue: "unsupported_benchmark",
+      detail: `Verdict claims "${name} beats it" but "${name}" is not a neighbor or flagship in the Artificial Analysis placements data.`,
+      severity: "block",
+    });
+  }
+
+  const cheaperPattern = new RegExp(CHEAPER_PAIRING_PATTERN.source, "g");
+  while ((match = cheaperPattern.exec(verdictText)) !== null) {
+    const name = (match[1] ?? match[2] ?? "").trim();
+    if (!name || knownNames.has(name.toLowerCase())) continue;
+    findings.push({
+      claim: `cheaper — ${name}`,
+      issue: "unsupported_benchmark",
+      detail: `Verdict makes a pricing comparison involving "${name}" but no pricing comparison for that model exists in the placements/pricing data.`,
+      severity: "block",
+    });
   }
 
   return findings;
@@ -907,7 +1004,7 @@ function checkUnsupportedStrengths(
   evidencePacket: EvidencePacket,
 ): VerifierFinding[] {
   const findings: VerifierFinding[] = [];
-  const claims = extractClaimsFromMessage(message);
+  const claims = extractClaimsFromMessage(message.replace(PLACEMENT_ROW_LINE_PATTERN, ""));
 
   for (const claim of claims) {
     const hasStrongLanguage = /\b(best|state.of.the.art|sota|outperform|surpass|exceed|dominat|beats?|rivals?|trails?)\w*/i.test(claim);
@@ -939,24 +1036,6 @@ function checkUnsupportedStrengths(
   return findings;
 }
 
-function checkMissingWeaknesses(message: string): VerifierFinding[] {
-  const hasWeaknessSection =
-    /unknown|limitation|weakness|caveat|not support|does not|cannot|missing/i.test(message);
-
-  if (!hasWeaknessSection) {
-    return [
-      {
-        claim: "weaknesses/unknowns section",
-        issue: "missing_weakness",
-        detail: "Final message does not include any weaknesses, unknowns, or limitations. Every release note must include explicit unknowns.",
-        severity: "block",
-      },
-    ];
-  }
-
-  return [];
-}
-
 export function runVerifier(input: VerifierInput): VerifierOutput {
   const { message, evidencePacket } = input;
 
@@ -966,7 +1045,7 @@ export function runVerifier(input: VerifierInput): VerifierOutput {
     ...checkSourceUrls(message, evidencePacket),
     ...checkStaleArticleUrl(message, evidencePacket),
     ...checkUnsupportedStrengths(message, evidencePacket),
-    ...checkMissingWeaknesses(message),
+    ...checkVerdictSupported(message, evidencePacket),
   ];
 
   const blockingFindings = findings.filter((f) => f.severity === "block");

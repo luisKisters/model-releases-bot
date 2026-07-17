@@ -23,7 +23,7 @@ import {
 } from "../src/lib/radar/llm";
 import type { ExtractedArticle } from "../src/lib/radar/types";
 import type { SystemCardResult } from "../src/lib/radar/systemCards";
-import type { BenchmarkEvidence } from "../src/lib/radar/benchmarks";
+import type { BenchmarkEvidence, ModelPlacements, NeighborPlacement, IndexPlacement } from "../src/lib/radar/benchmarks";
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
@@ -109,6 +109,44 @@ function makeVerifierInput(
   };
 }
 
+// Fixture placements matching the v2.2 spec mockup (docs/telegram-message-format-v2.md)
+// so verifier tests can exercise real rank/neighbor/pricing matching logic.
+function makePlacements(overrides: Partial<ModelPlacements> = {}): ModelPlacements {
+  const higherNeighbor: NeighborPlacement = { name: "Gemini 3 Flash", effort: "high", score: 60, rank: 8 };
+  const lowerNeighbor: NeighborPlacement = { name: "GPT-5.2 mini", effort: "high", score: 55, rank: 10 };
+  const intelligence: IndexPlacement = {
+    index: "intelligence",
+    levels: [{ effort: "high", score: 58, rank: 9 }],
+    n: 42,
+    bestRank: 9,
+    higherNeighbor,
+    lowerNeighbor,
+    isTop: false,
+  };
+
+  return {
+    modelNames: ["DeepSeek-V4-Pro"],
+    onAA: true,
+    indices: [intelligence],
+    deepswe: {
+      status: "tested",
+      levels: [{ effort: "high", score: 41.2, rank: 14 }],
+      n: 30,
+      bestRank: 14,
+      higherNeighbor: { name: "Opus 4.8", effort: "high", score: 52.0, rank: 13 },
+      lowerNeighbor: null,
+      isTop: false,
+    },
+    pricing: {
+      model: { inputPerMtok: 3, outputPerMtok: 15, blendedPerMtok: 6 },
+      vsHigherNeighbor: null,
+      vsLowerNeighbor: null,
+      vsFlagship: { cheaper: false, deltaBlended: -2, flagshipName: "Opus 4.8" },
+    },
+    ...overrides,
+  };
+}
+
 // ─── Verifier: verified messages pass ────────────────────────────────────────
 
 describe("runVerifier – verified messages pass", () => {
@@ -137,31 +175,79 @@ describe("runVerifier – verified messages pass", () => {
     expect(result.checkedClaims).toBeGreaterThanOrEqual(0);
   });
 
-  it("approves message that includes weakness section with 'unknown' keyword", () => {
-    const message = "DeepSeek-V4-Pro released. Strengths: coding. Unknown: no safety card. Source: https://api-docs.deepseek.com/news/news260424";
-    const result = runVerifier(makeVerifierInput(message));
-    const blockingFindings = result.findings.filter((f) => f.severity === "block");
-    // missing_weakness should not fire when "unknown" is present
-    expect(blockingFindings.some((f) => f.issue === "missing_weakness")).toBe(false);
-  });
-
   it("approves message when all URLs are in evidence references", () => {
     const message = "DeepSeek-V4 released. Unknown: no safety card. See https://api-docs.deepseek.com/news/news260424 for details.";
     const result = runVerifier(makeVerifierInput(message));
     const urlFindings = result.findings.filter((f) => f.issue === "wrong_source_url");
     expect(urlFindings).toHaveLength(0);
   });
+
+  it("approves a benchmark row and verdict comparison that exactly match placements data", () => {
+    const message = [
+      "<b>Verdict.</b> Opus 4.8 beats it on DeepSWE (52.0% vs 41.2%) and is cheaper in every pricing category, so it remains the safer pick. (full breakdown in reply)",
+      "• Intelligence Index: #9 of 42 — high 58 (#9); best level between Gemini 3 Flash (high) and GPT-5.2 mini (high)",
+      "• DeepSWE: #14 of 30 — high 41.2 (#14); best level between Opus 4.8 (high) and the edge of the leaderboard",
+      "Unknown: no independent verification beyond Artificial Analysis.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+
+    const result = runVerifier(makeVerifierInput(message, { placements: makePlacements() }));
+    const placementFindings = result.findings.filter(
+      (f) => f.issue === "unsupported_benchmark",
+    );
+    expect(placementFindings).toHaveLength(0);
+    expect(result.approved).toBe(true);
+  });
+
+  it("passes [placeholder]-wrapped benchmark rows and verdict comparisons without checking them", () => {
+    const message = [
+      "<b>Verdict.</b> [Opus 4.8] beats it on DeepSWE ([52.0%] vs [41.2%], placeholder) and is cheaper [placeholder], so caution is warranted. (full breakdown in reply)",
+      "• Intelligence Index: #[9] of [42] — high [58] (#[9]); best level between [Gemini 3 Flash] (high) and [GPT-5.2 mini] (high)",
+      "Unknown: no independent verification available.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+
+    // No placements at all — every AA-derived figure above is bracketed, so
+    // nothing should be checked against (missing) placement data.
+    const result = runVerifier(makeVerifierInput(message, { placements: null }));
+    const placementFindings = result.findings.filter((f) => f.issue === "unsupported_benchmark");
+    expect(placementFindings).toHaveLength(0);
+  });
 });
 
 // ─── Verifier: unsupported messages are blocked ───────────────────────────────
 
 describe("runVerifier – unverified messages are blocked", () => {
-  it("blocks messages missing any weaknesses/unknowns section", () => {
-    const message = "DeepSeek-V4-Pro is the best model. Strengths: fast. Source: https://api-docs.deepseek.com/news/news260424";
-    const result = runVerifier(makeVerifierInput(message));
-    const weaknessFindings = result.findings.filter((f) => f.issue === "missing_weakness");
-    expect(weaknessFindings.length).toBeGreaterThan(0);
-    expect(weaknessFindings[0]!.severity).toBe("block");
+  it("blocks a fabricated rank in a benchmark row that doesn't match placements data", () => {
+    const message = [
+      "<b>Verdict.</b> A solid mid-pack release. (full breakdown in reply)",
+      "• Intelligence Index: #1 of 42 — high 58 (#1); best level between Gemini 3 Flash (high) and GPT-5.2 mini (high)",
+      "Unknown: no independent verification beyond Artificial Analysis.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+
+    // Real placements say bestRank is 9, not the fabricated #1 in the message.
+    const result = runVerifier(makeVerifierInput(message, { placements: makePlacements() }));
+    const benchmarkFindings = result.findings.filter((f) => f.issue === "unsupported_benchmark");
+    expect(benchmarkFindings.length).toBeGreaterThan(0);
+    expect(benchmarkFindings[0]!.severity).toBe("block");
+    expect(result.approved).toBe(false);
+  });
+
+  it("blocks a fabricated price-comparison pairing in the verdict", () => {
+    const message = [
+      "<b>Verdict.</b> Totally Made Up Model is cheaper across the board, so this release is overpriced. (full breakdown in reply)",
+      "Unknown: no independent verification beyond Artificial Analysis.",
+      "Source: https://api-docs.deepseek.com/news/news260424",
+    ].join("\n");
+
+    // "Totally Made Up Model" is not a neighbor or flagship in placements/pricing data.
+    const result = runVerifier(makeVerifierInput(message, { placements: makePlacements() }));
+    const verdictFindings = result.findings.filter(
+      (f) => f.issue === "unsupported_benchmark" && f.claim.includes("Totally Made Up Model"),
+    );
+    expect(verdictFindings.length).toBeGreaterThan(0);
+    expect(verdictFindings[0]!.severity).toBe("block");
     expect(result.approved).toBe(false);
   });
 
@@ -205,29 +291,15 @@ describe("runVerifier – unverified messages are blocked", () => {
     expect(result.approved).toBe(false);
   });
 
-  it("blocks messages with benchmark claims not in evidence", () => {
+  it("blocks a real-looking benchmark row when the model has no Artificial Analysis placement data at all", () => {
     const message = [
-      "DeepSeek-V4-Pro achieves 99.9% on HumanEval.",
-      "Unknown: no safety card.",
+      "<b>Verdict.</b> A solid mid-pack release. (full breakdown in reply)",
+      "• Intelligence Index: #9 of 42 — high 58 (#9); best level between Gemini 3 Flash (high) and GPT-5.2 mini (high)",
+      "Unknown: no independent verification beyond Artificial Analysis.",
       "Source: https://api-docs.deepseek.com/news/news260424",
     ].join("\n");
 
-    const result = runVerifier(
-      makeVerifierInput(message, {
-        benchmarkSummary: "MMLU: 92.5%. No HumanEval data.",
-        evidenceSynthesis: "MMLU results available. HumanEval not present.",
-        claims: [
-          {
-            name: "MMLU",
-            value: "92.5",
-            source: "vendor_article",
-            sourceUrl: "https://api-docs.deepseek.com/news/news260424",
-            provenance: "vendor",
-            status: "missing",
-          },
-        ],
-      }),
-    );
+    const result = runVerifier(makeVerifierInput(message, { placements: null }));
 
     const benchmarkFindings = result.findings.filter((f) => f.issue === "unsupported_benchmark");
     expect(benchmarkFindings.length).toBeGreaterThan(0);
