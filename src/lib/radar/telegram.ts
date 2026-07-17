@@ -7,16 +7,26 @@ export type TelegramResult = {
   ok: boolean;
   status: number;
   error?: string;
+  messageId?: number;
 };
 
 export type TelegramMessageOptions = {
+  parseMode?: "HTML" | "MarkdownV2";
+  replyToMessageId?: number;
   maxRetries?: number;
-  parseMode?: "MarkdownV2";
 };
 
 export type TelegramSendOptions = {
   dryRun?: boolean;
   sendTelegramFlag?: boolean;
+};
+
+export type ReleasePairResult = {
+  ok: boolean;
+  message1: TelegramResult;
+  message2: TelegramResult | null;
+  message1PlainTextFallback: boolean;
+  message2PlainTextFallback: boolean;
 };
 
 export type TelegramSendDecision = {
@@ -65,27 +75,35 @@ export async function sendTelegramMessage(
     return { ok: false, status: 0, error: "Telegram env vars are missing" };
   }
 
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    text: text.slice(0, 4096),
+    link_preview_options: { is_disabled: true },
+  };
+  if (options.parseMode) {
+    body.parse_mode = options.parseMode;
+  }
+  if (options.replyToMessageId !== undefined) {
+    body.reply_to_message_id = options.replyToMessageId;
+  }
+
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
     const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: text.slice(0, 4096),
-        ...(options.parseMode ? { parse_mode: options.parseMode } : {}),
-        link_preview_options: { is_disabled: true },
-      }),
+      body: JSON.stringify(body),
     });
 
     const payload = (await response.json().catch(() => null)) as {
       ok?: boolean;
       description?: string;
       parameters?: { retry_after?: number };
+      result?: { message_id?: number };
     } | null;
 
     const ok = response.ok && payload?.ok !== false;
     if (ok) {
-      return { ok: true, status: response.status };
+      return { ok: true, status: response.status, messageId: payload?.result?.message_id };
     }
 
     const retryAfter = payload?.parameters?.retry_after;
@@ -117,6 +135,68 @@ export async function sendTelegramMarkdownMessage(
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Telegram HTML whitelist (<b> <i> <a> <code> <blockquote expandable>) rejects
+// unescaped &, <, > inside interpolated text — see rule 11 in
+// docs/telegram-message-format-v2.md.
+export function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function stripHtmlToPlainText(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, "")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+// Sends the Message 1 (alert card) + Message 2 (reply deep dive) pair from the
+// v2.2 writer contract. Message 2 is sent as a threaded reply to Message 1. A
+// release must never be dropped because Telegram rejected the writer's HTML —
+// a 400 on either message triggers a tag-stripped plain-text resend.
+export async function sendReleasePair(
+  message1: string,
+  message2: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ReleasePairResult> {
+  let result1 = await sendTelegramMessage(message1, fetchImpl, { parseMode: "HTML" });
+  let message1PlainTextFallback = false;
+  if (!result1.ok && result1.status === 400) {
+    result1 = await sendTelegramMessage(stripHtmlToPlainText(message1), fetchImpl);
+    message1PlainTextFallback = true;
+  }
+
+  if (!result1.ok) {
+    return {
+      ok: false,
+      message1: result1,
+      message2: null,
+      message1PlainTextFallback,
+      message2PlainTextFallback: false,
+    };
+  }
+
+  let result2 = await sendTelegramMessage(message2, fetchImpl, {
+    parseMode: "HTML",
+    replyToMessageId: result1.messageId,
+  });
+  let message2PlainTextFallback = false;
+  if (!result2.ok && result2.status === 400) {
+    result2 = await sendTelegramMessage(stripHtmlToPlainText(message2), fetchImpl, {
+      replyToMessageId: result1.messageId,
+    });
+    message2PlainTextFallback = true;
+  }
+
+  return {
+    ok: result1.ok && result2.ok,
+    message1: result1,
+    message2: result2,
+    message1PlainTextFallback,
+    message2PlainTextFallback,
+  };
 }
 
 export function shouldSendToTelegram(

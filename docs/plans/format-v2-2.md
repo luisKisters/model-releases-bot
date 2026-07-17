@@ -166,16 +166,35 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
 
 ### Task 5: Telegram HTML And Threaded Reply
 
-- [ ] `src/lib/radar/telegram.ts`: `sendTelegramMessage` gains
+- [x] `src/lib/radar/telegram.ts`: `sendTelegramMessage` gains
       `parse_mode: "HTML"`, optional `replyToMessageId`, and returns the
       `message_id` from the API response.
-- [ ] Add `sendReleasePair(msg1, msg2)`: send msg1, then msg2 as reply to msg1's
+      (`sendTelegramMessage` now takes an optional third `TelegramMessageOptions`
+      param — `{ parseMode?: "HTML"; replyToMessageId?: number }` — and returns
+      `messageId` on success; existing two-arg callers (`sendReleaseNote`,
+      `sendSourceFailureAlert`) are unaffected since options default to `{}`.)
+- [x] Add `sendReleasePair(msg1, msg2)`: send msg1, then msg2 as reply to msg1's
       id. On Telegram 400 (HTML parse error): strip tags and resend plain text —
       a release must never be dropped due to markup.
-- [ ] HTML escaping helper for interpolated text (`&`, `<`, `>`), used by the
+      (`sendReleasePair` sends message1 with `parseMode: "HTML"`; on a 400 it
+      strips tags/decodes entities and resends plain, then sends message2 as a
+      reply to message1's `messageId` — with the same 400 → plain-text fallback,
+      still linked via `reply_to_message_id`. If message1 fails for a non-400
+      reason, message2 is never attempted.)
+- [x] HTML escaping helper for interpolated text (`&`, `<`, `>`), used by the
       fallback renderer too.
-- [ ] Tests with mocked fetch: pair send, reply linkage, 400 → plain-text retry,
+      (`escapeHtml` exported from `telegram.ts`; the plain-text fallback
+      renderer (`stripHtmlToPlainText`) performs the inverse decode so the
+      400-fallback resend reads as natural plain text instead of raw entities.)
+- [x] Tests with mocked fetch: pair send, reply linkage, 400 → plain-text retry,
       dry-run still sends nothing.
+      (new `tests/telegram.test.ts`: 13 tests covering `escapeHtml`, HTML/reply
+      options on `sendTelegramMessage`, and `sendReleasePair` — pair send with
+      reply linkage, 400 fallback on message1, 400 fallback on message2, a
+      heavily-tagged message1 that still succeeds via plain-text fallback,
+      message2 skipped on a non-400 message1 failure, dry-run gate never
+      reaching `sendReleasePair`, and missing-env-var short circuit. Full suite:
+      `npx vitest run` 808 tests green, `npx tsc --noEmit` clean.)
 
 ### Task 6: Verifier Update
 
