@@ -22,20 +22,20 @@ Hard failures — the run is broken if any of these happen:
   Convex deployment, or any code path is added that sends a Telegram message on
   deploy/startup/baseline poll ("test message", "deploy notification", etc.).
 - Direct `npx convex deploy` to production from this run. Production deploys
-  happen ONLY via the push to main in Task 7 (GitHub Actions), which is allowed
+  happen ONLY via the push to main in Task 8 (GitHub Actions), which is allowed
   and intended.
 - Secrets are committed, printed to logs, or written into fixtures.
 - The final writer role is moved off OpenRouter Kimi, or analysis roles off DeepSeek.
 - The verifier is weakened to "always approve" instead of being taught the new
   claim types.
-- AA response shape is assumed instead of probed (Task 0) — if the probe shows a
+- AA response shape is assumed instead of probed (Task 1) — if the probe shows a
   field is absent (e.g. DeepSWE), the code must handle the documented fallback,
   not fabricate the field.
 - A task is checked off with stubs, hardcoded outputs, or tests that don't run.
 
 Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes.
 
-## Task 0 — Environment + AA ground truth
+### Task 1: Environment And AA Ground Truth
 
 - [ ] If running in a fresh worktree, copy `.env.local` from the main checkout
       (`~/projects/model-releases-bot/.env.local`) if it exists.
@@ -57,7 +57,7 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
 - [ ] If DeepSWE or any assumed index is absent from the API, note it and use the
       spec's fallback lines; do not invent data.
 
-## Task 1 — AI release classifier
+### Task 2: AI Release Classifier
 
 - [ ] `src/lib/radar/llm.ts`: add `release_classifier` to `LlmRole` and
       `DEEPSEEK_ROLES`.
@@ -76,10 +76,10 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
       reject, malformed); pipeline test proving a non-release never reaches the
       writer.
 
-## Task 2 — AA leaderboard + placements
+### Task 3: AA Leaderboard And Placements
 
 - [ ] `src/lib/radar/benchmarks.ts`: add `fetchAALeaderboard()` keeping ALL models
-      from the AA response (per Task 0's actual shape): per model — capability
+      from the AA response (per Task 1's actual shape): per model — capability
       index scores, DeepSWE if present, reasoning-effort variant, input/output
       pricing.
 - [ ] Add pure `computePlacements(leaderboard, modelNames)` returning per index:
@@ -90,7 +90,7 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
 - [ ] Unit tests against `tests/fixtures/aa-models.json` covering: multi-level
       model, single-level model, #1 model, model absent from AA, DeepSWE absent.
 
-## Task 3 — Prompts + two-message writer
+### Task 4: Prompts And Two-Message Writer
 
 - [ ] `EvidencePacket` (`src/lib/radar/agents.ts`): add `placements` and
       `availability` (API availability + subscription availability strings; add
@@ -108,7 +108,7 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
       output as message 1 and regenerate message 2 once), fallback lines for
       no-AA / no-DeepSWE / no-system-card.
 
-## Task 4 — Telegram HTML + threaded reply
+### Task 5: Telegram HTML And Threaded Reply
 
 - [ ] `src/lib/radar/telegram.ts`: `sendTelegramMessage` gains
       `parse_mode: "HTML"`, optional `replyToMessageId`, and returns the
@@ -121,7 +121,7 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
 - [ ] Tests with mocked fetch: pair send, reply linkage, 400 → plain-text retry,
       dry-run still sends nothing.
 
-## Task 5 — Verifier update
+### Task 6: Verifier Update
 
 - [ ] `runVerifier`: benchmark/rank/comparison claims verify against the
       `placements` struct (benchmark name, score, rank, neighbors must match);
@@ -133,13 +133,13 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
 - [ ] Tests: valid verdict approved; fabricated rank blocked; fabricated
       price-comparison blocked; placeholder values pass.
 
-## Task 6 — Config + cleanup
+### Task 7: Config And Cleanup
 
 - [ ] `llm.ts`: `DEFAULT_KIMI_MODEL` → `moonshotai/kimi-k2.6`.
 - [ ] Update all affected existing tests; full `npx vitest run` green,
       `npx tsc --noEmit` clean.
 
-## Task 7 — Validation run + cost report + push to main
+### Task 8: Validation Run, Cost Report, And Push To Main
 
 - [ ] Pick 3 real recent model-release articles from tracked labs (fresh URLs or
       the replay-case URLs in `src/lib/radar/releaseMessages.ts`).
@@ -149,7 +149,7 @@ Validation for every task: `npx vitest run` passes and `npx tsc --noEmit` passes
 - [ ] Write `docs/plans/format-v2-2-report.md` containing: the 3 rendered message
       pairs (exact HTML as they would post), per-release per-stage cost breakdown
       (classifier, summarizers, synthesizer, writer, AA), total cost of the
-      validation run, projected monthly cost, any blockers from Task 0, any AA
+      validation run, projected monthly cost, any blockers from Task 1, any AA
       fields that turned out unavailable, and a "How to go live" section (see
       final checkbox).
 - [ ] Pre-push safety checks (all mandatory):
