@@ -190,6 +190,14 @@ describe("extractLabFromUrl", () => {
     expect(extractLabFromUrl("https://x.ai/news/grok-4")).toBe("xAI");
   });
 
+  it("detects newly selected official lab domains", () => {
+    expect(extractLabFromUrl("https://qwenlm.github.io/blog/qwen3/")).toBe("Qwen");
+    expect(extractLabFromUrl("https://www.kimi.com/resources/kimi-k2-7-code")).toBe("Kimi");
+    expect(extractLabFromUrl("https://z.ai/blog/glm-5.2")).toBe("Z.ai");
+    expect(extractLabFromUrl("https://www.minimax.io/blog/minimax-m3")).toBe("MiniMax");
+    expect(extractLabFromUrl("https://mimo.mi.com/docs/en-US/updates/model")).toBe("Xiaomi MiMo");
+  });
+
   it("returns Unknown for unrecognized domain", () => {
     expect(extractLabFromUrl("https://example.com/some-ai-release")).toBe("Unknown");
   });

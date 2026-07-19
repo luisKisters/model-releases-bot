@@ -4,6 +4,14 @@ export const sourceRegistry: SourceConfig[] = [
   source("openai-news-rss", "OpenAI", "OpenAI news RSS", "https://openai.com/news/rss.xml", "rssAtom", "sendable"),
 
   source("anthropic-news", "Anthropic", "Anthropic news", "https://www.anthropic.com/news", "html", "discovery"),
+  source(
+    "anthropic-engineering",
+    "Anthropic",
+    "Anthropic engineering blog",
+    "https://www.anthropic.com/engineering",
+    "html",
+    "discovery",
+  ),
 
   source("deepmind-rss", "Google Gemini", "Google DeepMind blog RSS", "https://deepmind.google/blog/rss.xml", "rssAtom", "sendable"),
   source(
@@ -15,12 +23,12 @@ export const sourceRegistry: SourceConfig[] = [
     "sendable",
   ),
   source(
-    "google-developers-gemini-feed",
+    "google-developers-gemini-search",
     "Google Gemini",
-    "Google Developers Gemini feed",
-    "https://developers.googleblog.com/feeds/posts/default/-/Gemini/",
-    "rssAtom",
-    "sendable",
+    "Google Developers Gemini search",
+    "https://developers.googleblog.com/en/search/?product_categories=Gemini",
+    "html",
+    "discovery",
   ),
 
   source("mistral-rss", "Mistral", "Mistral RSS", "https://mistral.ai/rss.xml", "rssAtom", "sendable"),
@@ -30,6 +38,60 @@ export const sourceRegistry: SourceConfig[] = [
   source("meta-ai-blog", "Meta Llama", "AI at Meta blog", "https://ai.meta.com/blog/", "html", "discovery"),
 
   source("xai-news", "xAI", "xAI news", "https://x.ai/news", "html", "discovery"),
+
+  source("qwen-rss", "Qwen", "Qwen blog RSS", "https://qwenlm.github.io/blog/index.xml", "rssAtom", "sendable"),
+  source("qwen-blog", "Qwen", "Qwen blog", "https://qwen.ai/blog", "html", "discovery"),
+  source(
+    "qwen-model-studio-release-notes",
+    "Qwen",
+    "Alibaba Model Studio release notes",
+    "https://www.alibabacloud.com/help/en/model-studio/model-release-notes",
+    "html",
+    "discovery",
+  ),
+
+  source("kimi-blog", "Kimi", "Kimi research blog", "https://www.kimi.com/blog/", "html", "discovery"),
+  source("kimi-resources", "Kimi", "Kimi resources", "https://www.kimi.com/resources", "html", "discovery"),
+  source("kimi-platform-blog", "Kimi", "Kimi platform blog", "https://platform.kimi.ai/blog", "html", "discovery"),
+
+  source(
+    "zai-docs-sitemap",
+    "Z.ai",
+    "Z.ai docs sitemap",
+    "https://docs.z.ai/sitemap.xml",
+    "sitemap",
+    "discovery",
+    ["/release-notes/", "/guides/llm/glm", "/guides/vlm/glm", "/guides/audio/glm", "/guides/image/glm"],
+  ),
+  source(
+    "zai-release-notes",
+    "Z.ai",
+    "Z.ai release notes",
+    "https://docs.z.ai/release-notes/new-released",
+    "html",
+    "discovery",
+  ),
+
+  source("minimax-news", "MiniMax", "MiniMax news", "https://www.minimax.io/news", "html", "discovery"),
+  source("minimax-blog", "MiniMax", "MiniMax blog", "https://www.minimax.io/blog", "html", "discovery"),
+  source(
+    "minimax-model-release-notes",
+    "MiniMax",
+    "MiniMax model release notes",
+    "https://platform.minimax.io/docs/release-notes/models",
+    "html",
+    "discovery",
+  ),
+
+  source("mimo-research-blog", "Xiaomi MiMo", "Xiaomi MiMo research blog", "https://mimo.xiaomi.com/", "html", "discovery"),
+  source(
+    "mimo-model-release",
+    "Xiaomi MiMo",
+    "Xiaomi MiMo model release log",
+    "https://mimo.mi.com/docs/en-US/updates/model",
+    "html",
+    "discovery",
+  ),
 
   source(
     "nvidia-nemotron-feed",
@@ -86,6 +148,7 @@ function source(
   url: string,
   parser: SourceConfig["parser"],
   sourceRole: SourceRole,
+  urlIncludes?: string[],
 ): SourceConfig {
   const notify = sourceRole === "sendable";
   return {
@@ -100,5 +163,6 @@ function source(
     enabled: true,
     notify,
     sourceRole,
+    urlIncludes,
   };
 }

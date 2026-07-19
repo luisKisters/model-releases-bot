@@ -12,6 +12,7 @@ export type ArticleGateCandidate = {
   provider: string;
   title: string;
   url?: string;
+  summary?: string;
   source?: SourceConfig;
 };
 
@@ -20,6 +21,7 @@ export type ArticleGateDecision = {
   checks: ArticleGateChecks;
   lab?: string;
   reason: string;
+  alertKind?: "model_release" | "major_incident";
 };
 
 type LabRule = {
@@ -27,6 +29,8 @@ type LabRule = {
   providers: string[];
   hosts: string[];
   requiredText?: RegExp;
+  rejectedText?: RegExp;
+  additionalReleaseText?: RegExp;
   rejectedHosts?: string[];
   rejectedPath?: RegExp;
 };
@@ -57,6 +61,7 @@ const LAB_RULES: LabRule[] = [
     lab: "Mistral",
     providers: ["Mistral"],
     hosts: ["mistral.ai"],
+    additionalReleaseText: /\bnew\b/i,
   },
   {
     lab: "DeepSeek",
@@ -73,12 +78,45 @@ const LAB_RULES: LabRule[] = [
     lab: "xAI",
     providers: ["xAI"],
     hosts: ["x.ai"],
+    rejectedText: /\b(powerpoint|word|plugin marketplace|agent dashboard|interactive brokers|databricks|warp|bedrock|voices|add-?in|openclaw|opencode|kilo code|vapi|gopuff|etoro|skills?|composer|voice agent builder|use grok in|powering)\b/i,
+  },
+  {
+    lab: "Qwen",
+    providers: ["Qwen"],
+    hosts: ["qwen.ai", "qwenlm.github.io", "www.alibabacloud.com"],
+    requiredText: /qwen/i,
+  },
+  {
+    lab: "Kimi",
+    providers: ["Kimi", "Moonshot AI", "Moonshot"],
+    hosts: ["kimi.com", "www.kimi.com", "platform.kimi.ai", "moonshot.ai", "www.moonshot.ai"],
+    requiredText: /kimi|moonshot/i,
+    rejectedText: /\b(feature release log|setup guides?|coding with|vendor[-\s]?verifier|playground|ama recap|code cli|cheat sheet|how to install|how to use)\b/i,
+  },
+  {
+    lab: "Z.ai",
+    providers: ["Z.ai", "ZAI"],
+    hosts: ["z.ai", "www.z.ai", "docs.z.ai"],
+    requiredText: /glm|z\.?ai/i,
+  },
+  {
+    lab: "MiniMax",
+    providers: ["MiniMax"],
+    hosts: ["minimax.io", "www.minimax.io", "platform.minimax.io"],
+    requiredText: /minimax|hailuo|abab/i,
+  },
+  {
+    lab: "Xiaomi MiMo",
+    providers: ["Xiaomi MiMo", "XiaomiMiMo", "MiMo"],
+    hosts: ["mimo.mi.com", "mimo.xiaomi.com", "platform.xiaomimimo.com"],
+    requiredText: /mimo|xiaomi/i,
   },
   {
     lab: "NVIDIA Nemotron",
     providers: ["NVIDIA Nemotron", "NVIDIA"],
     hosts: ["research.nvidia.com", "developer.nvidia.com"],
     requiredText: /nemotron/i,
+    rejectedText: /\b(how to|automate|creating|building|evaluate|harness profile|langchain|documentation|alarm management)\b/i,
   },
   {
     lab: "Deepgram",
@@ -100,8 +138,35 @@ const LAB_RULES: LabRule[] = [
   },
 ];
 
-const MODEL_RELEASE_TEXT =
-  /model|release|released|launch|launched|introducing|introduce|announc|available|gpt|claude|gemini|llama|mistral|deepseek|grok|nemotron|nova|aura|scribe|universal|conformer|eleven\s*v/i;
+const RELEASE_ACTION_TEXT =
+  /\b(announc(?:e|ed|ing|es)|introduc(?:e|ed|ing|es)|launch(?:ed|ing|es)?|release(?:d|s| notes?)?|ship(?:ped|s|ping)?|unveil(?:ed|s|ing)?|now available|generally available)\b/i;
+
+const MODEL_SUBJECT_TEXT =
+  /\b(model|models|llm|large language model|foundation model|reasoning model|coding model|multimodal model|language model|vision model|speech model|audio model|image model|video model|open[-\s]?weight|open[-\s]?source|inference model)\b|gpt[-\s]?\d|o\d|claude|gemini|llama|mistral|mixtral|deepseek|grok|qwen|kimi|moonshot|glm|z\.?ai|minimax|mimo|nemotron|nova|aura|scribe|universal|conformer|eleven\s*v/i;
+
+const VERSIONED_MODEL_TEXT =
+  /\b(?:gpt|claude|gemini|llama|mistral|mixtral|deepseek|grok|qwen|kimi|k2|glm|minimax|mimo|nemotron|nova|aura|scribe|universal|conformer|eleven)\s*[-_ ]?\s*(?:[a-z]+[-_ ]?)?v?\d+(?:\.\d+)*(?:[-_ ][a-z0-9]+)?\b/i;
+
+const OPEN_MODEL_ANNOUNCEMENT_TEXT =
+  /\b(open[-\s]?model|flagship model|latest model|latest .* model|frontier model|foundation model)\b/i;
+
+const OFFICIAL_MODEL_NEWS_PATH =
+  /api-docs\.deepseek\.com\/news\/news\d+/i;
+
+const MAJOR_INCIDENT_TEXT =
+  /\b(post[-\s]?mortem|incident report|root cause|outage|degradation|quality reports?|latency regression|availability incident|service disruption|inference incident|model issue|model issues|elevated errors|resolved as of|what happened|what we fixed)\b/i;
+
+const INCIDENT_SUBJECT_TEXT =
+  /\b(model|models|api|inference|serving|latency|quality|reasoning|coding|responses?|claude|gpt|gemini|grok|qwen|kimi|glm|minimax|mimo|nemotron|deepseek|mistral|llama)\b/i;
+
+const OPERATIONAL_OR_ADMIN_UPDATE_TEXT =
+  /\b(update notice|model update notice|pricing adjustment|price adjustment|price increase|price reduction|service price|billing|context cache pricing|ptu service|decommission(?:ed|ing)?|deprecation|deprecated|field changes?|quota|rate limit|region launch|availability zone|maintenance|terms update|policy update|page changed)\b/i;
+
+const INTEGRATION_OR_CUSTOMER_STORY_TEXT =
+  /\b(use \w+ in|use grok in|powered by|powering|integration|integrations|connector|add-?in|plugin|marketplace|customer story|case study|partner(?:ship)?|workflow|agent builder|voice agent builder|generate documents|decks|spreadsheets|restaurant brands|regulated industries|on-premises deployments|confidential computing|market sentiment)\b/i;
+
+const NON_MODEL_FEATURE_TEXT =
+  /\b(batch diarization|diarization v\d|document generation|spreadsheet generation|presentation generation|skills in web|persistent expertise)\b/i;
 
 // Reject root indexes, feed URLs, model catalogs, changelogs, docs roots, and
 // release-notes pages that are never dedicated release articles.
@@ -171,21 +236,78 @@ export function evaluateArticleGate(candidate: ArticleGateCandidate): ArticleGat
 
   checks.dedicated_article = true;
 
-  const searchable = `${candidate.title} ${parsedUrl.href}`;
+  const searchable = `${candidate.title} ${candidate.summary ?? ""} ${parsedUrl.href}`;
+  const isMajorIncident = hasMajorIncidentLanguage(searchable);
+
+  if (!isMajorIncident && isOperationalOrProductUpdate(searchable)) {
+    return { shouldSend: false, reason: "not_model_release", lab: rule.lab, checks };
+  }
 
   if (rule.requiredText && !rule.requiredText.test(searchable)) {
     return { shouldSend: false, reason: "lab_specific_requirement_failed", lab: rule.lab, checks };
   }
 
+  if (rule.rejectedText?.test(searchable)) {
+    return { shouldSend: false, reason: "lab_specific_requirement_failed", lab: rule.lab, checks };
+  }
+
   checks.lab_specific_constraint = true;
 
-  if (!MODEL_RELEASE_TEXT.test(searchable)) {
+  const isModelRelease = hasModelReleaseLanguage(searchable) ||
+    (Boolean(rule.additionalReleaseText?.test(searchable)) && hasModelSubject(searchable));
+
+  if (!isModelRelease && !isMajorIncident) {
     return { shouldSend: false, reason: "not_model_release", lab: rule.lab, checks };
   }
 
   checks.model_release_language = true;
 
-  return { shouldSend: true, reason: "official_dedicated_model_release_article", lab: rule.lab, checks };
+  if (isMajorIncident && !isModelRelease) {
+    return {
+      shouldSend: true,
+      reason: "official_dedicated_major_incident_article",
+      lab: rule.lab,
+      checks,
+      alertKind: "major_incident",
+    };
+  }
+
+  return {
+    shouldSend: true,
+    reason: "official_dedicated_model_release_article",
+    lab: rule.lab,
+    checks,
+    alertKind: "model_release",
+  };
+}
+
+function hasModelReleaseLanguage(searchable: string): boolean {
+  if (!hasModelSubject(searchable)) {
+    return false;
+  }
+
+  return (
+    RELEASE_ACTION_TEXT.test(searchable) ||
+    VERSIONED_MODEL_TEXT.test(searchable) ||
+    OPEN_MODEL_ANNOUNCEMENT_TEXT.test(searchable) ||
+    OFFICIAL_MODEL_NEWS_PATH.test(searchable)
+  );
+}
+
+function hasModelSubject(searchable: string): boolean {
+  return MODEL_SUBJECT_TEXT.test(searchable) || VERSIONED_MODEL_TEXT.test(searchable);
+}
+
+function isOperationalOrProductUpdate(searchable: string): boolean {
+  return (
+    OPERATIONAL_OR_ADMIN_UPDATE_TEXT.test(searchable) ||
+    INTEGRATION_OR_CUSTOMER_STORY_TEXT.test(searchable) ||
+    NON_MODEL_FEATURE_TEXT.test(searchable)
+  );
+}
+
+function hasMajorIncidentLanguage(searchable: string): boolean {
+  return MAJOR_INCIDENT_TEXT.test(searchable) && INCIDENT_SUBJECT_TEXT.test(searchable);
 }
 
 function parseUrl(value: string): URL | null {

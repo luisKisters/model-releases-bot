@@ -33,7 +33,8 @@ const RED_TEAM_CASES: Array<{
       title: "MiMo-7B-RL-Zero: Xiaomi first open-source reasoning model",
       url: "https://huggingface.co/XiaomiMiMo/MiMo-7B-RL-Zero",
     },
-    expectedReason: "unselected_lab",
+    expectedReason: "not_official_domain",
+    expectedLab: "Xiaomi MiMo",
   },
   {
     id: "cohere-changelog",
@@ -146,6 +147,7 @@ describe("red-team source eligibility", () => {
       "not_dedicated_article",
       "lab_specific_requirement_failed",
       "not_model_release",
+      "official_dedicated_major_incident_article",
     ]);
 
     for (const testCase of RED_TEAM_CASES) {
@@ -177,7 +179,7 @@ describe("red-team source eligibility", () => {
   });
 
   it("no enabled+notifying source in registry belongs to an excluded provider", () => {
-    const excludedProviders = ["Cohere", "Qwen", "Kimi", "MiniMax", "Z.ai", "XiaomiMiMo"];
+    const excludedProviders = ["Cohere"];
 
     for (const provider of excludedProviders) {
       const found = sourceRegistry.filter(
@@ -198,6 +200,18 @@ describe("red-team source eligibility", () => {
     const discoverySourceIds = discoveryOnly.map((source) => source.sourceId);
     // Changelog and discovery sources that must NOT notify directly
     const expectedDiscovery = [
+      "anthropic-engineering",
+      "qwen-blog",
+      "qwen-model-studio-release-notes",
+      "kimi-blog",
+      "kimi-platform-blog",
+      "zai-docs-sitemap",
+      "zai-release-notes",
+      "minimax-news",
+      "minimax-blog",
+      "minimax-model-release-notes",
+      "mimo-research-blog",
+      "mimo-model-release",
       "deepgram-changelog-rss",
       "deepgram-blog",
       "elevenlabs-changelog-rss",

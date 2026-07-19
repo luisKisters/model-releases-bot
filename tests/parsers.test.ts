@@ -49,6 +49,16 @@ describe("parseSourceContent", () => {
     expect(signals[0].url).toContain("/updates/model");
   });
 
+  it("uses sitemap URL slugs in signal titles for model extraction", () => {
+    const signals = parseSourceContent(
+      { ...baseSource, provider: "Z.ai", parser: "sitemap", urlIncludes: ["/guides/llm/glm"] },
+      `<urlset><url><loc>https://docs.z.ai/guides/llm/glm-5.2</loc><lastmod>2026-06-30</lastmod></url></urlset>`,
+    );
+
+    expect(signals[0].title).toContain("glm-5.2");
+    expect(signals[0].modelNames).toContain("glm-5.2");
+  });
+
   it("parses JSON catalogs with data arrays", () => {
     const signals = parseSourceContent(
       { ...baseSource, parser: "jsonCatalog", confidence: "catalog_confirmation", signalType: "catalog" },
@@ -57,5 +67,30 @@ describe("parseSourceContent", () => {
 
     expect(signals[0].title).toContain("GPT-5.1");
     expect(signals[0].modelNames).toContain("GPT-5.1");
+  });
+
+  it("skips utility navigation links while extracting Kimi resource model articles", () => {
+    const source: SourceConfig = {
+      ...baseSource,
+      sourceId: "kimi-resources",
+      provider: "Kimi",
+      label: "Kimi resources",
+      url: "https://www.kimi.com/resources",
+      parser: "html",
+      notify: false,
+      sourceRole: "discovery",
+    };
+    const html = `<html><body>
+      <a href="/products/kimi-work">Kimi Work AI desktop agent for knowledge workers</a>
+      <a href="/features/webbridge">Kimi WebBridge A browser extension for AI agents</a>
+      <a href="/resources/kimi-claw-introduction">Kimi Claw Deploy 24/7 AI agents in one click</a>
+      <a href="/blog/kimi-k2-6">Kimi K2.6 Advancing Open-Source Coding</a>
+      <a href="/resources/kimi-k2-7-code">Kimi K2.7 Code</a>
+    </body></html>`;
+
+    const signals = parseSourceContent(source, html);
+
+    expect(signals.some((signal) => signal.url === "https://www.kimi.com/resources/kimi-k2-7-code")).toBe(true);
+    expect(signals.some((signal) => signal.url?.includes("/products/"))).toBe(false);
   });
 });

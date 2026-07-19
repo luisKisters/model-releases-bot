@@ -17,6 +17,7 @@ const sourceConfig = v.object({
   pollEveryMinutes: v.number(),
   enabled: v.boolean(),
   notify: v.boolean(),
+  sourceRole: v.optional(v.string()),
   urlIncludes: v.optional(v.array(v.string())),
 });
 
@@ -30,13 +31,14 @@ export const syncSources = internalMutation({
         .query("sources")
         .withIndex("by_source_id", (q) => q.eq("sourceId", source.sourceId))
         .unique();
+      const sourceRole = normalizeSourceRole(source.sourceRole, source.notify);
 
       if (existing) {
         const sourceChanged =
           existing.url !== source.url ||
           existing.parser !== source.parser ||
           existing.enabled !== source.enabled;
-        await ctx.db.patch(existing._id, {
+        const patch = {
           provider: source.provider,
           label: source.label,
           url: source.url,
@@ -46,14 +48,24 @@ export const syncSources = internalMutation({
           pollEveryMinutes: source.pollEveryMinutes,
           enabled: source.enabled,
           notify: source.notify,
+          sourceRole,
           urlIncludes: source.urlIncludes,
           nextPollAt: sourceChanged ? args.now : existing.nextPollAt,
           failureCount: sourceChanged ? 0 : existing.failureCount,
           lastError: sourceChanged ? "" : existing.lastError,
-        });
+        };
+        await ctx.db.patch(existing._id, sourceChanged
+          ? {
+              ...patch,
+              lastContentHash: "",
+              etag: "",
+              lastModified: "",
+            }
+          : patch);
       } else {
         await ctx.db.insert("sources", {
           ...source,
+          sourceRole,
           nextPollAt: args.now,
           failureCount: 0,
         });
@@ -87,6 +99,17 @@ async function disableStaleSources(
       lastError: "disabled: source removed from registry",
     });
   }
+}
+
+function normalizeSourceRole(
+  sourceRole: string | undefined,
+  notify: boolean,
+): "sendable" | "discovery" {
+  if (sourceRole === "sendable" || sourceRole === "discovery") {
+    return sourceRole;
+  }
+
+  return notify ? "sendable" : "discovery";
 }
 
 export const getDueSources = internalQuery({
@@ -171,6 +194,7 @@ export const recordPollSuccess = internalMutation({
     const nextPollAt = args.now + source.pollEveryMinutes * 60_000;
     const notificationsToSend = [];
     let createdSignals = 0;
+    const createdSignalFingerprints: string[] = [];
 
     if (args.contentHash) {
       await ctx.db.insert("snapshots", {
@@ -212,6 +236,7 @@ export const recordPollSuccess = internalMutation({
         baseline: isBaseline,
       });
       createdSignals += 1;
+      createdSignalFingerprints.push(signal.fingerprint);
 
       for (const modelName of signal.modelNames) {
         await upsertModel(ctx, source.provider, modelName, args.now);
@@ -241,7 +266,7 @@ export const recordPollSuccess = internalMutation({
       lastError: "",
     });
 
-    return { createdSignals, notificationsToSend };
+    return { createdSignals, createdSignalFingerprints, notificationsToSend };
   },
 });
 

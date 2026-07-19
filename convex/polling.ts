@@ -3,8 +3,11 @@ import { internal } from "./_generated/api";
 import { pollSource } from "../src/lib/radar/poller";
 import { sourceRegistry } from "../src/lib/radar/sources";
 import { evaluateArticleGate } from "../src/lib/radar/articleGate";
-import { sendSourceFailureAlert } from "../src/lib/radar/telegram";
+import { detectEvidenceLinks } from "../src/lib/radar/systemCards";
+import { formatTelegramSignal, sendSourceFailureAlert, sendTelegramMarkdownMessage } from "../src/lib/radar/telegram";
 import type { PollSourceInput, SignalConfidence, SignalType, SourceParser } from "../src/lib/radar/types";
+
+const TELEGRAM_SEND_SPACING_MS = 3200;
 
 export const pollDueSources = internalAction({
   args: {},
@@ -22,6 +25,7 @@ export const pollDueSources = internalAction({
     let failedSources = 0;
     let createdSignals = 0;
     let notificationAttempts = 0;
+    let lastTelegramSendAt = 0;
 
     for (const source of dueSources) {
       const result = await pollSource(toPollInput(source));
@@ -37,6 +41,7 @@ export const pollDueSources = internalAction({
 
         for (const notification of failure.notificationsToSend) {
           notificationAttempts += 1;
+          lastTelegramSendAt = await waitForTelegramPace(lastTelegramSendAt);
           const sent = await sendSourceFailureAlert({
             sourceId: notification.sourceId,
             sourceLabel: notification.sourceLabel,
@@ -69,30 +74,32 @@ export const pollDueSources = internalAction({
       }
       createdSignals += success.createdSignals;
 
-      // For each signal that passed the source-level notify gate, check the article gate
-      // and persist release candidates. Only verified candidates trigger Telegram.
-      for (const notification of success.notificationsToSend) {
-        // Skip signals without a URL — fingerprint hashes are not valid canonical URLs
-        if (!notification.url) continue;
+      // Check every parsed article-like signal, including discovery sources.
+      // The source role controls raw signal notification, but official articles
+      // that pass the article gate should still become release candidates.
+      const createdSignalFingerprints = new Set(success.createdSignalFingerprints);
+      for (const signal of result.parsedSignals) {
+        if (!signal.url) continue;
+        if (!createdSignalFingerprints.has(signal.fingerprint)) continue;
 
-        // Run article gate before persisting a candidate
         const gateDecision = evaluateArticleGate({
           provider: source.provider,
-          title: notification.title,
-          url: notification.url,
+          title: signal.title,
+          url: signal.url,
+          summary: signal.summary,
         });
 
         const isBaseline = !source.lastContentHash;
         const candidateResult = await ctx.runMutation(
           internal.releases.createOrSkipCandidate,
           {
-            canonicalArticleUrl: notification.url,
+            canonicalArticleUrl: signal.url,
             lab: gateDecision.lab ?? source.provider,
             provider: source.provider,
             sourceId: source.sourceId,
             sourceUrl: source.url,
-            title: notification.title,
-            modelNames: notification.modelNames,
+            title: signal.title,
+            modelNames: signal.modelNames,
             releaseDate: undefined,
             gateResult: {
               shouldSend: gateDecision.shouldSend,
@@ -108,10 +115,27 @@ export const pollDueSources = internalAction({
           continue;
         }
 
-        // Candidate is new and gate passed. The full verification pipeline
-        // (article extraction → evidence → verifier → release note) must approve
-        // before any Telegram message is sent. Trigger it via radar:smoke or a
-        // dedicated pipeline cron — do not send here.
+        notificationAttempts += 1;
+        lastTelegramSendAt = await waitForTelegramPace(lastTelegramSendAt);
+        const systemCard = await inspectSystemCard(signal.url);
+        const sent = await sendTelegramMarkdownMessage(formatTelegramSignal({
+          provider: source.provider,
+          title: signal.title,
+          url: signal.url,
+          sourceLabel: source.label,
+          confidence: signal.confidence,
+          summary: signal.summary,
+          modelNames: signal.modelNames,
+          alertKind: gateDecision.alertKind ?? "model_release",
+          systemCard,
+        }));
+        await ctx.runMutation(internal.registry.recordNotification, {
+          fingerprint: signal.fingerprint,
+          channel: "telegram",
+          status: sent.ok ? "sent" : "failed",
+          error: sent.error,
+          now: Date.now(),
+        });
       }
     }
 
@@ -138,6 +162,7 @@ function toPollInput(source: {
   pollEveryMinutes: number;
   enabled: boolean;
   notify: boolean;
+  sourceRole?: string;
   urlIncludes?: string[];
   lastContentHash?: string;
   etag?: string;
@@ -150,6 +175,60 @@ function toPollInput(source: {
     signalType: source.signalType as SignalType,
     // DB rows pre-dating the sourceRole field default to sendable to preserve
     // existing notify behaviour. New syncs will always store the real role.
-    sourceRole: source.notify ? "sendable" : "discovery",
+    sourceRole: normalizeSourceRole(source.sourceRole, source.notify),
   };
+}
+
+async function inspectSystemCard(url: string): Promise<{
+  status: "linked" | "not_linked" | "unavailable";
+  url?: string;
+  label?: string;
+}> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
+        "user-agent": "model-release-radar/0.1 (+https://github.com)",
+      },
+    });
+    if (!response.ok) {
+      return { status: "unavailable" };
+    }
+
+    const html = await response.text();
+    const evidence = detectEvidenceLinks(html, url).find((link) =>
+      link.kind === "system_card" || link.kind === "safety_card" || link.kind === "technical_report",
+    );
+    if (!evidence) {
+      return { status: "not_linked" };
+    }
+
+    return {
+      status: "linked",
+      url: evidence.url,
+      label: evidence.anchorText ?? evidence.kind.replaceAll("_", " "),
+    };
+  } catch {
+    return { status: "unavailable" };
+  }
+}
+
+async function waitForTelegramPace(lastTelegramSendAt: number) {
+  const now = Date.now();
+  const waitMs = Math.max(0, TELEGRAM_SEND_SPACING_MS - (now - lastTelegramSendAt));
+  if (waitMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
+  return Date.now();
+}
+
+function normalizeSourceRole(
+  sourceRole: string | undefined,
+  notify: boolean,
+): "sendable" | "discovery" {
+  if (sourceRole === "sendable" || sourceRole === "discovery") {
+    return sourceRole;
+  }
+
+  return notify ? "sendable" : "discovery";
 }

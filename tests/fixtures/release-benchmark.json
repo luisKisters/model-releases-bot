@@ -530,54 +530,70 @@
     },
 
     {
-      "id": "qwen3-excluded",
+      "id": "qwen3-official-blog",
       "provider": "Qwen",
-      "title": "Qwen3 model released",
+      "title": "Qwen3.6-Plus: Towards Real World Agents",
       "url": "https://qwenlm.github.io/blog/qwen3/",
       "expected": {
-        "shouldSend": false,
-        "rejectionReason": "unselected_lab",
-        "exclusionRule": "Qwen is not a selected lab",
-        "modelNames": []
+        "shouldSend": true,
+        "lab": "Qwen",
+        "modelNames": ["Qwen3.6-Plus"],
+        "releaseDate": "2026-03-01",
+        "canonicalUrl": "https://qwenlm.github.io/blog/qwen3/",
+        "systemCardStatus": "missing",
+        "benchmarkExpectations": [{ "name": "unknown", "status": "missing" }],
+        "expectedUnknowns": ["Independent benchmark replication and safety documentation are unknown from the release page alone."]
       }
     },
 
     {
-      "id": "kimi-k2-excluded",
+      "id": "kimi-k2-7-code-official",
       "provider": "Kimi",
-      "title": "Kimi K2 released",
-      "url": "https://kimi.moonshot.cn/news/kimi-k2",
+      "title": "Kimi K2.7 Code",
+      "url": "https://www.kimi.com/resources/kimi-k2-7-code",
       "expected": {
-        "shouldSend": false,
-        "rejectionReason": "unselected_lab",
-        "exclusionRule": "Kimi/Moonshot is not a selected lab",
-        "modelNames": []
+        "shouldSend": true,
+        "lab": "Kimi",
+        "modelNames": ["Kimi K2.7 Code"],
+        "releaseDate": "2026-06-25",
+        "canonicalUrl": "https://www.kimi.com/resources/kimi-k2-7-code",
+        "systemCardStatus": "missing",
+        "benchmarkExpectations": [{ "name": "unknown", "status": "missing" }],
+        "expectedUnknowns": ["Independent benchmark replication and safety documentation are unknown from the release page alone."]
       }
     },
 
     {
-      "id": "z-ai-glm4-excluded",
+      "id": "z-ai-glm5-2-official",
       "provider": "Z.ai",
-      "title": "GLM-4 model released",
-      "url": "https://z.ai/blog/glm-4",
+      "title": "GLM-5.2: Built for Long-Horizon Tasks",
+      "url": "https://z.ai/blog/glm-5.2",
       "expected": {
-        "shouldSend": false,
-        "rejectionReason": "unselected_lab",
-        "exclusionRule": "Z.ai is not a selected lab",
-        "modelNames": []
+        "shouldSend": true,
+        "lab": "Z.ai",
+        "modelNames": ["GLM-5.2"],
+        "releaseDate": "2026-06-20",
+        "canonicalUrl": "https://z.ai/blog/glm-5.2",
+        "systemCardStatus": "missing",
+        "benchmarkExpectations": [{ "name": "unknown", "status": "missing" }],
+        "expectedUnknowns": ["Independent benchmark replication and safety documentation are unknown from the release page alone."]
       }
     },
 
     {
-      "id": "minimax-excluded",
+      "id": "minimax-m3-official",
       "provider": "MiniMax",
-      "title": "MiniMax-VL-01 released",
-      "url": "https://minimaxi.com/news/minimax-vl-01",
+      "title": "MiniMax M3: Frontier Coding, 1M Context, Native Multimodality",
+      "url": "https://www.minimax.io/blog/minimax-m3",
       "expected": {
-        "shouldSend": false,
-        "rejectionReason": "unselected_lab",
-        "exclusionRule": "MiniMax is not a selected lab",
-        "modelNames": []
+        "shouldSend": true,
+        "lab": "MiniMax",
+        "modelNames": ["MiniMax M3"],
+        "releaseDate": "2026-06-01",
+        "canonicalUrl": "https://www.minimax.io/blog/minimax-m3",
+        "systemCardStatus": "missing",
+        "benchmarkExpectations": [{ "name": "unknown", "status": "missing" }],
+        "expectedUnknowns": ["Independent benchmark replication and safety documentation are unknown from the release page alone."]
       }
     },
 
@@ -588,8 +604,8 @@
       "url": "https://huggingface.co/XiaomiMiMo/MiMo-7B-RL",
       "expected": {
         "shouldSend": false,
-        "rejectionReason": "unselected_lab",
-        "exclusionRule": "Xiaomi MiMo is not a selected lab — was previously a noisy source",
+        "rejectionReason": "not_official_domain",
+        "exclusionRule": "Xiaomi MiMo Hugging Face model-card updates are discovery evidence only, not a sendable source",
         "modelNames": []
       }
     },

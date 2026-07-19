@@ -13,6 +13,7 @@ export default defineSchema({
     pollEveryMinutes: v.number(),
     enabled: v.boolean(),
     notify: v.boolean(),
+    sourceRole: v.optional(v.string()),
     urlIncludes: v.optional(v.array(v.string())),
     nextPollAt: v.number(),
     lastPolledAt: v.optional(v.number()),

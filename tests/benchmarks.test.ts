@@ -255,6 +255,40 @@ describe("queryArtificialAnalysis – available benchmark data", () => {
     }
   });
 
+  it("uses the v2 API shape and flattens evaluation, speed, and latency metrics", async () => {
+    const fetchImpl = makeAAFetch({
+      data: [
+        {
+          id: "model-id",
+          slug: "deepseek-v4-pro",
+          evaluations: { mmlu_pro: 0.82, gpqa: 0.71 },
+          median_output_tokens_per_second: 120,
+          median_time_to_first_token_seconds: 0.8,
+        },
+      ],
+    });
+
+    const result = await queryArtificialAnalysis(["deepseek-v4-pro"], ["language"], {
+      apiKey: "test-key",
+      fetchImpl,
+    });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://artificialanalysis.ai/api/v2/data/llms/models",
+      expect.objectContaining({ headers: expect.objectContaining({ "x-api-key": "test-key" }) }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.rows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ benchmark: "mmlu_pro", value: 0.82 }),
+          expect.objectContaining({ benchmark: "Tokens/s", value: 120 }),
+          expect.objectContaining({ benchmark: "TTFT", value: 0.8 }),
+        ]),
+      );
+    }
+  });
+
   it("attributes data to Artificial Analysis source URL", async () => {
     const rawData = { data: [{ model_id: "llama-4", benchmark: "GPQA", value: 58.0 }] };
     const fetchImpl = makeAAFetch(rawData);
