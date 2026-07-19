@@ -5,11 +5,12 @@ import type { FetchImpl } from "./fetching";
 export const DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1";
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export const DEFAULT_DEEPSEEK_MODEL = "deepseek-chat";
-export const DEFAULT_KIMI_MODEL = "moonshotai/kimi-k2";
+export const DEFAULT_KIMI_MODEL = "moonshotai/kimi-k2.6";
 
 // --- LLM Roles ---
 
 export type LlmRole =
+  | "release_classifier"
   | "article_summarizer"
   | "system_card_summarizer"
   | "benchmark_aggregator"
@@ -18,6 +19,7 @@ export type LlmRole =
 
 // DeepSeek handles all stages except final message writing
 export const DEEPSEEK_ROLES = new Set<LlmRole>([
+  "release_classifier",
   "article_summarizer",
   "system_card_summarizer",
   "benchmark_aggregator",
@@ -48,11 +50,11 @@ export const DEEPSEEK_PRICING: ModelPricing = {
 };
 
 export const OPENROUTER_KIMI_PRICING: ModelPricing = {
-  inputPerMillion: 1.00,
-  outputPerMillion: 3.00,
+  inputPerMillion: 0.66,
+  outputPerMillion: 3.41,
   currency: "USD",
-  sourceUrl: "https://openrouter.ai/moonshotai/kimi-k2",
-  lastVerifiedDate: "2026-07-01",
+  sourceUrl: "https://openrouter.ai/moonshotai/kimi-k2.6",
+  lastVerifiedDate: "2026-07-18",
 };
 
 // --- Usage ---
@@ -211,7 +213,7 @@ export async function callOpenAICompatible(
         "HTTP-Referer": "https://github.com/model-release-radar",
         "X-Title": "model-release-radar",
       },
-      body: JSON.stringify({ model, messages, max_tokens: 2048, stream: false }),
+      body: JSON.stringify({ model, messages, max_tokens: role === "final_writer" ? 4096 : 2048, stream: false }),
     });
 
     clearTimeout(timer);
@@ -262,6 +264,15 @@ export async function callOpenAICompatible(
 type FakeResponseDef = { text: string; promptTokens: number; completionTokens: number };
 
 const FAKE_RESPONSES: Record<LlmRole, FakeResponseDef> = {
+  release_classifier: {
+    text: JSON.stringify({
+      is_new_model_release: true,
+      model_names: ["FAKE_MODEL"],
+      reason: "FAKE_CLASSIFIER: deterministic fake release classification for offline testing.",
+    }),
+    promptTokens: 256,
+    completionTokens: 32,
+  },
   article_summarizer: {
     text: "FAKE_ARTICLE_SUMMARY: Deterministic fake article summary for offline testing.",
     promptTokens: 512,

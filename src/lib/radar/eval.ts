@@ -1,6 +1,6 @@
 import { evaluateArticleGate } from "./articleGate";
 import { extractModelNames } from "./text";
-import { runVerifier } from "./agents";
+import { runVerifier, AVAILABILITY_PLACEHOLDER } from "./agents";
 import type { EvidencePacket, VerifierOutput } from "./agents";
 import type { BenchmarkClaim } from "./benchmarks";
 import {
@@ -205,13 +205,15 @@ function buildOfflineEvidencePacket(
     systemCardStatus,
     references: [{ url: fixture.url, kind: "article" as const, chunkIds: [] }],
     costTracker: tracker,
+    placements: null,
+    placementsUnavailableReason: null,
+    availability: AVAILABILITY_PLACEHOLDER,
   };
 }
 
 // Build a synthetic final message from fixture data. Designed to pass verifier:
 // - Includes the article URL (satisfies checkStaleArticleUrl)
-// - Includes weakness/unknown language (satisfies checkMissingWeaknesses)
-// - No invented benchmark scores (satisfies checkBenchmarkClaims)
+// - No benchmark rows or verdict beats/cheaper pairings (satisfies checkBenchmarkClaims / checkVerdictSupported)
 // - No superlatives (satisfies checkUnsupportedStrengths)
 // - No safety jargon when system card not found (satisfies checkSafetyInvention)
 function buildOfflineFinalMessage(

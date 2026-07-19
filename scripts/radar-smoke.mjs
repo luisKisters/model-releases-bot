@@ -2,11 +2,12 @@ import { loadLocalEnv } from "./shared-env.mjs";
 import { evaluateArticleGate } from "../src/lib/radar/articleGate.ts";
 import { extractArticleFromHtml } from "../src/lib/radar/browserTools.ts";
 import { extractSystemCards } from "../src/lib/radar/systemCards.ts";
-import { aggregateBenchmarkEvidence } from "../src/lib/radar/benchmarks.ts";
+import { aggregateBenchmarkEvidence, fetchAALeaderboard } from "../src/lib/radar/benchmarks.ts";
 import { runAgentOrchestration, extractLabFromUrl } from "../src/lib/radar/agents.ts";
+import { runReleaseClassifier } from "../src/lib/radar/classifier.ts";
 import { buildReleaseNote, canSendReleaseNote } from "../src/lib/radar/messages.ts";
 import {
-  sendReleaseNote,
+  sendReleasePair,
   sendTelegramMessage,
   shouldSendToTelegram,
   telegramConfigured,
@@ -330,66 +331,96 @@ async function runReleasePipeline(url, { dryRun, sendTg, maxCostUsd, requireBrow
       };
     }
 
-    // --- System card extraction ---
-    let systemCardResult;
-    try {
-      systemCardResult = await extractSystemCards(rawHtml, fetchedContent.finalUrl ?? url, {
-        timeoutMs: 20_000,
-        maxRetries: 1,
-      });
-    } catch (err) {
-      systemCardResult = {
-        system_card_status: "not_found",
-        detected: [],
-        documents: [],
-        fetchError: err instanceof Error ? err.message : String(err),
-      };
-    }
-
-    // --- Benchmark evidence ---
-    const modelNames = extractModelNames(`${article.title ?? ""} ${article.body ?? ""}`);
-    let benchmarkEvidence;
-    try {
-      benchmarkEvidence = await aggregateBenchmarkEvidence(
-        gateResult.lab ?? "Unknown",
-        modelNames,
-        article.body ?? "",
-        url,
-        systemCardResult.documents.flatMap((d) => d.chunks),
-        {
-          apiKey: process.env.ARTIFICIAL_ANALYSIS_API_KEY,
-          timeoutMs: 15_000,
-          requireArtificialAnalysis,
-        },
-      );
-    } catch (err) {
-      if (requireArtificialAnalysis) {
-        return {
-          ok: false,
-          status: "failed",
-          reason: "artificial_analysis_required_but_failed",
-          releaseUrl: url,
-          dryRun,
-          secretStatus,
-          estimatedCostUsd: tracker.totalCostUsd,
-          detail: err instanceof Error ? err.message : String(err),
-        };
-      }
-      benchmarkEvidence = {
-        lab: gateResult.lab ?? "Unknown",
-        modelNames: [],
-        modality: ["language"],
-        claims: [],
-        artificialAnalysis: { ok: false, status: "error", reason: err instanceof Error ? err.message : String(err) },
-      };
-    }
-
-    // --- Agent orchestration ---
+    // --- Agent orchestration setup (router created early: the release
+    // classifier below must run before any evidence-gathering LLM/API calls) ---
     const router = createLlmRouter({
       deepseekApiKey: process.env.DEEPSEEK_API_KEY,
       openrouterApiKey: process.env.OPENROUTER_API_KEY,
       kimiModel: process.env.OPENROUTER_KIMI_MODEL,
     });
+
+    // --- Release classifier gate: runs after article fetch, before any
+    // evidence gathering (system card extraction, benchmark aggregation, AA
+    // leaderboard fetch), so non-releases never pay for that work. ---
+    const classifierOutput = await runReleaseClassifier(
+      { title: article.title, articleText: article.body ?? "" },
+      router,
+      tracker,
+    );
+
+    let systemCardResult;
+    let benchmarkEvidence;
+    let leaderboard;
+
+    if (!classifierOutput.is_new_model_release) {
+      systemCardResult = { system_card_status: "not_found", detected: [], documents: [] };
+      benchmarkEvidence = {
+        lab: gateResult.lab ?? "Unknown",
+        modelNames: [],
+        modality: ["language"],
+        claims: [],
+        artificialAnalysis: { ok: false, status: "skipped", reason: "Release classifier rejected this candidate before evidence gathering." },
+      };
+      leaderboard = { ok: false, status: "skipped", reason: "Release classifier rejected this candidate before evidence gathering." };
+    } else {
+      // --- System card extraction ---
+      try {
+        systemCardResult = await extractSystemCards(rawHtml, fetchedContent.finalUrl ?? url, {
+          timeoutMs: 20_000,
+          maxRetries: 1,
+        });
+      } catch (err) {
+        systemCardResult = {
+          system_card_status: "not_found",
+          detected: [],
+          documents: [],
+          fetchError: err instanceof Error ? err.message : String(err),
+        };
+      }
+
+      // --- Benchmark evidence ---
+      const modelNames = extractModelNames(`${article.title ?? ""} ${article.body ?? ""}`);
+      try {
+        benchmarkEvidence = await aggregateBenchmarkEvidence(
+          gateResult.lab ?? "Unknown",
+          modelNames,
+          article.body ?? "",
+          url,
+          systemCardResult.documents.flatMap((d) => d.chunks),
+          {
+            apiKey: process.env.ARTIFICIAL_ANALYSIS_API_KEY,
+            timeoutMs: 15_000,
+            requireArtificialAnalysis,
+          },
+        );
+      } catch (err) {
+        if (requireArtificialAnalysis) {
+          return {
+            ok: false,
+            status: "failed",
+            reason: "artificial_analysis_required_but_failed",
+            releaseUrl: url,
+            dryRun,
+            secretStatus,
+            estimatedCostUsd: tracker.totalCostUsd,
+            detail: err instanceof Error ? err.message : String(err),
+          };
+        }
+        benchmarkEvidence = {
+          lab: gateResult.lab ?? "Unknown",
+          modelNames: [],
+          modality: ["language"],
+          claims: [],
+          artificialAnalysis: { ok: false, status: "error", reason: err instanceof Error ? err.message : String(err) },
+        };
+      }
+
+      // --- AA leaderboard (placements source for the Benchmarks section) ---
+      leaderboard = await fetchAALeaderboard({
+        apiKey: process.env.ARTIFICIAL_ANALYSIS_API_KEY,
+        timeoutMs: 15_000,
+      });
+    }
 
     let orchestrationResult;
     try {
@@ -398,7 +429,7 @@ async function runReleasePipeline(url, { dryRun, sendTg, maxCostUsd, requireBrow
         article,
         systemCardResult,
         benchmarkEvidence,
-        { router, tracker },
+        { router, tracker, leaderboard, classifierOutput },
       );
     } catch (err) {
       if (err instanceof CostCapExceededError) {
@@ -466,7 +497,10 @@ async function runReleasePipeline(url, { dryRun, sendTg, maxCostUsd, requireBrow
       }
 
       try {
-        const sendResult = await sendReleaseNote(releaseNote);
+        const sendResult = await sendReleasePair(
+          orchestrationResult.message1,
+          orchestrationResult.message2,
+        );
         telegramResult = sendResult;
         if (!sendResult.ok) {
           return {
@@ -478,7 +512,7 @@ async function runReleasePipeline(url, { dryRun, sendTg, maxCostUsd, requireBrow
             secretStatus,
             estimatedCostUsd: tracker.totalCostUsd,
             telegramResult,
-            detail: sendResult.reason ?? "Telegram send returned not-ok.",
+            detail: sendResult.message1?.error ?? sendResult.message2?.error ?? "Telegram send returned not-ok.",
           };
         }
       } catch (err) {
@@ -523,7 +557,8 @@ async function runReleasePipeline(url, { dryRun, sendTg, maxCostUsd, requireBrow
       verifierStatus: releaseNote.verifierStatus,
       verifierApproved: orchestrationResult.approved,
       verifierFindings: orchestrationResult.verifierOutput.findings,
-      finalMessage: orchestrationResult.finalMessage,
+      message1: orchestrationResult.message1,
+      message2: orchestrationResult.message2,
       releaseNote: {
         title: releaseNote.title,
         lab: releaseNote.lab,

@@ -54,6 +54,9 @@ function makePacket(overrides: Partial<EvidencePacket> = {}): EvidencePacket {
       { url: "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro", kind: "model_repo", chunkIds: [] },
     ],
     costTracker: makeTracker(),
+    placements: null,
+    placementsUnavailableReason: null,
+    availability: { api: "[placeholder]", subscription: "[placeholder]" },
     ...overrides,
   };
 }
