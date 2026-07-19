@@ -1,0 +1,47 @@
+name: Radar smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_url:
+        description: Release article URL to run the pipeline against
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Dry-run pipeline (no Telegram)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      ARTIFICIAL_ANALYSIS_API_KEY: ${{ secrets.ARTIFICIAL_ANALYSIS_API_KEY }}
+      # Telegram credentials are deliberately NOT provided: even if a code path
+      # ignored the flags below, telegramConfigured() is false and no send can happen.
+      RADAR_TELEGRAM_SEND_ENABLED: "false"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run pipeline dry-run
+        run: npx tsx scripts/radar-smoke.mjs --release-url "${{ inputs.release_url }}" --dry-run 2>&1 | tee smoke-output.txt
+
+      - name: Upload output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-output
+          path: smoke-output.txt
