@@ -276,6 +276,18 @@ describe("findStaleSourcesToDisable — stale source cleanup", () => {
 });
 
 describe("normalizeToDiscoveryCandidates — source adapters", () => {
+  it("fully decodes nested HTML entities in Alibaba notice URLs", () => {
+    const source = sourceRegistry.find((s) => s.sourceId === "qwen-model-studio-release-notes")!;
+    const [candidate] = normalizeToDiscoveryCandidates(
+      source,
+      '<a href="/en/notice/detail?_p_lc=1&amp;amp;id=1749">Qwen 3.5 series model launch</a>',
+    );
+
+    expect(candidate.candidateUrl).toBe(
+      "https://www.alibabacloud.com/en/notice/detail?_p_lc=1&id=1749",
+    );
+  });
+
   const rssSource = sourceRegistry.find((s) => s.sourceId === "openai-news-rss")!;
   const htmlSource = sourceRegistry.find((s) => s.sourceId === "anthropic-news")!;
   const changelogSource = sourceRegistry.find((s) => s.sourceId === "deepgram-changelog-rss")!;

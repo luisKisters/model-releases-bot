@@ -241,8 +241,14 @@ export function evaluateArticleGate(candidate: ArticleGateCandidate): ArticleGat
   // contained "launch-business" even though the title announced no model.
   const searchable = `${candidate.title} ${candidate.summary ?? ""}`;
   const isMajorIncident = hasMajorIncidentLanguage(searchable);
+  const isMixedQwenLaunchNotice = rule.lab === "Qwen" &&
+    hostMatches(parsedUrl.hostname, "www.alibabacloud.com") &&
+    hasExplicitQwenModelLaunchLanguage(searchable);
 
-  if (!isMajorIncident && isOperationalOrProductUpdate(searchable)) {
+  // Alibaba occasionally announces a real Qwen model launch in the same
+  // service notice as a pricing change. Let that narrow, explicit case reach
+  // the AI classifier; ordinary updates and pricing notices remain rejected.
+  if (!isMajorIncident && !isMixedQwenLaunchNotice && isOperationalOrProductUpdate(searchable)) {
     return { shouldSend: false, reason: "not_model_release", lab: rule.lab, checks };
   }
 
@@ -312,6 +318,15 @@ function isOperationalOrProductUpdate(searchable: string): boolean {
 
 function hasMajorIncidentLanguage(searchable: string): boolean {
   return MAJOR_INCIDENT_TEXT.test(searchable) && INCIDENT_SUBJECT_TEXT.test(searchable);
+}
+
+function hasExplicitQwenModelLaunchLanguage(searchable: string): boolean {
+  const versionedQwen = /\bqwen\s*[-_ ]?\s*(?:[a-z]+[-_ ]?)?v?\d+(?:\.\d+)*(?:[-_ ][a-z0-9]+)?\b/i;
+  const qwenBeforeLaunch = /\bqwen\s*[-_ ]?\s*(?:[a-z]+[-_ ]?)?v?\d+(?:\.\d+)*(?:[-_ ][a-z0-9]+)?\b.{0,50}\b(?:(?:series|model)\s+)?(?:launch|release)\b/i;
+  const launchBeforeQwen = /\b(?:model\s+)?(?:launch|release)(?:d|s|ing)?\s+of\s+(?:the\s+)?qwen\s*[-_ ]?\s*(?:[a-z]+[-_ ]?)?v?\d+(?:\.\d+)*(?:[-_ ][a-z0-9]+)?\b/i;
+
+  return versionedQwen.test(searchable) &&
+    (qwenBeforeLaunch.test(searchable) || launchBeforeQwen.test(searchable));
 }
 
 function parseUrl(value: string): URL | null {

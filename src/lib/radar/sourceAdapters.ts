@@ -217,7 +217,7 @@ function extractHtmlArticleLinkCandidates(
   const results: DiscoveryCandidate[] = [];
 
   for (const match of raw.matchAll(/<a[^>]+href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
-    const href = match[1]?.trim();
+    const href = match[1] ? decodeEntities(match[1]).trim() : undefined;
     const linkText = decodeEntities(stripTags(match[2] ?? "")).trim();
 
     if (!href || !linkText || !looksReleaseRelevant(linkText)) continue;

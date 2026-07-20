@@ -4,7 +4,11 @@ import { pollSource } from "../src/lib/radar/poller";
 import { sourceRegistry } from "../src/lib/radar/sources";
 import { evaluateArticleGate } from "../src/lib/radar/articleGate";
 import { extractArticle } from "../src/lib/radar/browserTools";
-import { runReleaseClassifier, type ReleaseClassifierOutput } from "../src/lib/radar/classifier";
+import {
+  buildReleaseClassifierEvidence,
+  runReleaseClassifier,
+  type ReleaseClassifierOutput,
+} from "../src/lib/radar/classifier";
 import { CostTracker, createLlmRouter } from "../src/lib/radar/llm";
 import { detectEvidenceLinks } from "../src/lib/radar/systemCards";
 import { formatTelegramSignal, sendSourceFailureAlert, sendTelegramMarkdownMessage } from "../src/lib/radar/telegram";
@@ -192,7 +196,11 @@ async function classifyReleaseCandidate(input: {
     return await runReleaseClassifier(
       {
         title: article.title ?? input.title,
-        articleText: [article.body, input.summary].filter(Boolean).join("\n\n"),
+        articleText: buildReleaseClassifierEvidence({
+          title: input.title,
+          articleBody: article.body,
+          summary: input.summary,
+        }),
       },
       router,
       tracker,

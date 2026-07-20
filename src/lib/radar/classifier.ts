@@ -19,6 +19,21 @@ export type ReleaseClassifierOutput = {
   reason: string;
 };
 
+export function buildReleaseClassifierEvidence(input: {
+  title: string;
+  articleBody?: string | null;
+  summary?: string;
+}): string {
+  const extractedEvidence = [input.articleBody, input.summary]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .join("\n\n");
+
+  // Some official announcement pages render their body only in the browser.
+  // Their human-visible listing title is still valid evidence and should be
+  // classified instead of presenting the model with an empty article.
+  return extractedEvidence || input.title;
+}
+
 const ARTICLE_TEXT_CHAR_LIMIT = 2000;
 
 const SYSTEM_PROMPT = `You are a conservative AI release classifier. Decide whether an article announces a NEW model or a new model VERSION becoming available.

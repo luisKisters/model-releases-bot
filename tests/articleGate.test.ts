@@ -560,6 +560,28 @@ describe("evaluateArticleGate", () => {
     });
   });
 
+  it("lets a mixed Alibaba pricing notice with an explicit Qwen model launch reach classification", () => {
+    expect(
+      evaluateArticleGate({
+        provider: "Qwen",
+        title: "Price cuts for select global models and Qwen 3.5 launch",
+        url: "https://www.alibabacloud.com/en/notice/detail?_p_lc=1&id=1749",
+      }),
+    ).toMatchObject({
+      shouldSend: true,
+      reason: "official_dedicated_model_release_article",
+      lab: "Qwen",
+    });
+
+    expect(
+      evaluateArticleGate({
+        provider: "Qwen",
+        title: "Qwen3.5-Plus and snapshot price reduction",
+        url: "https://www.alibabacloud.com/en/notice/detail?_p_lc=1&id=1727",
+      }),
+    ).toMatchObject({ shouldSend: false, reason: "not_model_release", lab: "Qwen" });
+  });
+
   it("accepts official Kimi model pages and blog posts", () => {
     expect(
       evaluateArticleGate({

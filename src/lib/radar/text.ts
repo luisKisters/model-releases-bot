@@ -11,15 +11,28 @@ const MODEL_NAME_PATTERNS = [
 ];
 
 export function decodeEntities(value: string): string {
-  return value
-    .replaceAll("&amp;", "&")
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'")
-    .replaceAll("&rsquo;", "'")
-    .replaceAll("&lsquo;", "'")
-    .replaceAll("&apos;", "'");
+  let decoded = value;
+
+  // Some listing pages escape attributes more than once (for example,
+  // `&amp;amp;id=1749`). Decode a small, bounded number of layers so the
+  // resulting URL carries the real query parameters without risking an
+  // unbounded replacement loop.
+  for (let pass = 0; pass < 3; pass += 1) {
+    const next = decoded
+      .replaceAll("&amp;", "&")
+      .replaceAll("&lt;", "<")
+      .replaceAll("&gt;", ">")
+      .replaceAll("&quot;", '"')
+      .replaceAll("&#39;", "'")
+      .replaceAll("&rsquo;", "'")
+      .replaceAll("&lsquo;", "'")
+      .replaceAll("&apos;", "'");
+
+    if (next === decoded) break;
+    decoded = next;
+  }
+
+  return decoded;
 }
 
 export function stripTags(value: string): string {

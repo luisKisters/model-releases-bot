@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runReleaseClassifier } from "../src/lib/radar/classifier";
+import { buildReleaseClassifierEvidence, runReleaseClassifier } from "../src/lib/radar/classifier";
 import { CostTracker, makeFakeLlmCompletion, type LlmMessage, type LlmRole, type LlmRouter } from "../src/lib/radar/llm";
 
 function makeRouter(responses: string[]): { router: LlmRouter; calls: { role: LlmRole; messages: LlmMessage[] }[] } {
@@ -18,6 +18,21 @@ function makeRouter(responses: string[]): { router: LlmRouter; calls: { role: Ll
 }
 
 describe("runReleaseClassifier", () => {
+  it("uses the official listing title when a client-rendered article has no extractable body", () => {
+    expect(
+      buildReleaseClassifierEvidence({
+        title: "Price cuts for select global models and Qwen 3.5 launch",
+        articleBody: null,
+      }),
+    ).toBe("Price cuts for select global models and Qwen 3.5 launch");
+
+    expect(
+      buildReleaseClassifierEvidence({
+        title: "Qwen 3.5 series model launch",
+        articleBody: "Qwen 3.5 is now available.",
+      }),
+    ).toBe("Qwen 3.5 is now available.");
+  });
   it("accepts a genuine new model release", async () => {
     const { router } = makeRouter([
       JSON.stringify({
