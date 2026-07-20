@@ -141,20 +141,16 @@ npm run typecheck
 npm test
 ```
 
-Pushes to `main` deploy production through `.github/workflows/deploy.yml`:
+Pushes to `main` deploy production through two independent integrations:
 
-1. Convex deploy runs with `CONVEX_DEPLOY_KEY`.
-2. The Convex deployment URL is injected into the Vercel production build as `NEXT_PUBLIC_CONVEX_URL`.
-3. Vercel deploys the prebuilt production output.
+1. GitHub Actions verifies the project and deploys Convex with `CONVEX_DEPLOY_KEY`.
+2. Vercel's Git integration deploys the same `main` commit using the production `NEXT_PUBLIC_CONVEX_URL` configured in the Vercel project.
 
 Required GitHub repository secrets:
 
 | Secret | Purpose |
 | --- | --- |
 | `CONVEX_DEPLOY_KEY` | Deploys the production Convex backend |
-| `VERCEL_TOKEN` | Authenticates Vercel CLI deploys |
-| `VERCEL_ORG_ID` | Selects the Vercel team |
-| `VERCEL_PROJECT_ID` | Selects the Vercel project |
 
 To immediately stop stale Telegram sends from any old Convex deployment, remove the Telegram environment variables from the production deployment:
 

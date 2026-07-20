@@ -47,9 +47,6 @@ jobs:
     environment: production
     env:
       CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -67,7 +64,7 @@ jobs:
         shell: bash
         run: |
           missing=0
-          for name in CONVEX_DEPLOY_KEY VERCEL_ORG_ID VERCEL_PROJECT_ID VERCEL_TOKEN; do
+          for name in CONVEX_DEPLOY_KEY; do
             if [ -z "${!name}" ]; then
               echo "::error::Missing required GitHub secret: ${name}"
               missing=1
@@ -75,13 +72,5 @@ jobs:
           done
           exit "$missing"
 
-      - name: Build with Convex URL and deploy Convex
-        shell: bash
-        run: |
-          npx convex deploy \
-            --message "GitHub Actions deploy ${GITHUB_SHA}" \
-            --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL \
-            --cmd 'npx vercel pull --yes --environment=production --token "$VERCEL_TOKEN" && node scripts/ci-prepare-vercel-env.mjs && npx vercel build --prod --token "$VERCEL_TOKEN"'
-
-      - name: Deploy Vercel production
-        run: npx vercel deploy --prebuilt --prod --token "$VERCEL_TOKEN"
+      - name: Deploy Convex production
+        run: npx convex deploy --message "GitHub Actions deploy ${GITHUB_SHA}"
