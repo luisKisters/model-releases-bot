@@ -236,7 +236,10 @@ export function evaluateArticleGate(candidate: ArticleGateCandidate): ArticleGat
 
   checks.dedicated_article = true;
 
-  const searchable = `${candidate.title} ${candidate.summary ?? ""} ${parsedUrl.href}`;
+  // Release language must come from human-visible article metadata. Counting
+  // URL slugs here caused false positives such as a Gemini tutorial whose path
+  // contained "launch-business" even though the title announced no model.
+  const searchable = `${candidate.title} ${candidate.summary ?? ""}`;
   const isMajorIncident = hasMajorIncidentLanguage(searchable);
 
   if (!isMajorIncident && isOperationalOrProductUpdate(searchable)) {
@@ -254,6 +257,7 @@ export function evaluateArticleGate(candidate: ArticleGateCandidate): ArticleGat
   checks.lab_specific_constraint = true;
 
   const isModelRelease = hasModelReleaseLanguage(searchable) ||
+    OFFICIAL_MODEL_NEWS_PATH.test(parsedUrl.href) ||
     (Boolean(rule.additionalReleaseText?.test(searchable)) && hasModelSubject(searchable));
 
   if (!isModelRelease && !isMajorIncident) {

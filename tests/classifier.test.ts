@@ -91,4 +91,26 @@ describe("runReleaseClassifier", () => {
     await runReleaseClassifier({ title: "t", articleText: "a" }, router, tracker);
     expect(tracker.stages.some((s) => s.stage === "release_classifier")).toBe(true);
   });
+
+  it("fails closed when the model says release but names no specific model", async () => {
+    const { router } = makeRouter([
+      JSON.stringify({
+        is_new_model_release: true,
+        model_names: [],
+        reason: "The article appears to announce something.",
+      }),
+    ]);
+
+    const output = await runReleaseClassifier(
+      {
+        title: "5 ways to build a side hustle with Gemini",
+        articleText: "Tips for using Gemini to start and grow a small business.",
+      },
+      router,
+      new CostTracker(10),
+    );
+
+    expect(output.is_new_model_release).toBe(false);
+    expect(output.reason).toMatch(/specific newly released model/i);
+  });
 });

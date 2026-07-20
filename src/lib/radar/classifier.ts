@@ -21,11 +21,13 @@ export type ReleaseClassifierOutput = {
 
 const ARTICLE_TEXT_CHAR_LIMIT = 2000;
 
-const SYSTEM_PROMPT = `You are an AI release classifier. Decide whether an article announces a NEW model or a new model VERSION becoming available.
+const SYSTEM_PROMPT = `You are a conservative AI release classifier. Decide whether an article announces a NEW model or a new model VERSION becoming available.
 
 "New model release" means: a new model or a new version of a model is being made available (e.g. launched, released, opened for API/product access).
 
 NOT a release: feature launches, product integrations, partnerships, pricing changes, research papers/blog posts without a new model, region/availability expansion of an already-released model, deprecations, or minor product updates.
+
+The article must name the specific new model or model version and explicitly say that model is newly launched, released, or becoming available. A generic family name such as "Gemini", "Claude", or "GPT" is not enough. Articles about ways to use an existing model, apps powered by a model, tutorials, product features, monthly roundups, and business/customer stories are NOT model releases. Mentions in a URL, navigation, comparison, or related-article list are not release evidence. If the evidence is missing or ambiguous, classify it as false.
 
 Respond with STRICT JSON only, no prose, no markdown fences, matching exactly this shape:
 {"is_new_model_release": boolean, "model_names": string[], "reason": string}
@@ -56,9 +58,22 @@ function parseClassifierOutput(text: string): ReleaseClassifierOutput | null {
   if (!Array.isArray(candidate.model_names)) return null;
   if (typeof candidate.reason !== "string") return null;
 
+  const modelNames = candidate.model_names
+    .filter((n): n is string => typeof n === "string")
+    .map((name) => name.trim())
+    .filter(Boolean);
+
+  if (candidate.is_new_model_release && modelNames.length === 0) {
+    return {
+      is_new_model_release: false,
+      model_names: [],
+      reason: "Classifier did not identify a specific newly released model; treated as not a release.",
+    };
+  }
+
   return {
     is_new_model_release: candidate.is_new_model_release,
-    model_names: candidate.model_names.filter((n): n is string => typeof n === "string"),
+    model_names: modelNames,
     reason: candidate.reason,
   };
 }

@@ -3,6 +3,9 @@ import { internal } from "./_generated/api";
 import { pollSource } from "../src/lib/radar/poller";
 import { sourceRegistry } from "../src/lib/radar/sources";
 import { evaluateArticleGate } from "../src/lib/radar/articleGate";
+import { extractArticle } from "../src/lib/radar/browserTools";
+import { runReleaseClassifier, type ReleaseClassifierOutput } from "../src/lib/radar/classifier";
+import { CostTracker, createLlmRouter } from "../src/lib/radar/llm";
 import { detectEvidenceLinks } from "../src/lib/radar/systemCards";
 import { formatTelegramSignal, sendSourceFailureAlert, sendTelegramMarkdownMessage } from "../src/lib/radar/telegram";
 import type { PollSourceInput, SignalConfidence, SignalType, SourceParser } from "../src/lib/radar/types";
@@ -13,6 +16,7 @@ export const pollDueSources = internalAction({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
+    const telegramSendsEnabled = process.env.RADAR_TELEGRAM_SEND_ENABLED === "true";
     await ctx.runMutation(internal.registry.syncSources, { sources: sourceRegistry, now });
 
     const dueSources = await ctx.runQuery(internal.registry.getDueSources, { now, limit: 12 });
@@ -39,7 +43,7 @@ export const pollDueSources = internalAction({
           statusCode: result.statusCode,
         });
 
-        for (const notification of failure.notificationsToSend) {
+        for (const notification of telegramSendsEnabled ? failure.notificationsToSend : []) {
           notificationAttempts += 1;
           lastTelegramSendAt = await waitForTelegramPace(lastTelegramSendAt);
           const sent = await sendSourceFailureAlert({
@@ -90,6 +94,19 @@ export const pollDueSources = internalAction({
         });
 
         const isBaseline = !source.lastContentHash;
+        const classifierDecision = gateDecision.shouldSend && !isBaseline
+          ? await classifyReleaseCandidate({
+              title: signal.title,
+              summary: signal.summary,
+              url: signal.url,
+            })
+          : null;
+        const classifierApproved = classifierDecision?.is_new_model_release === true;
+        const shouldSend = gateDecision.shouldSend && classifierApproved;
+        const modelNames = uniqueStrings([
+          ...signal.modelNames,
+          ...(classifierDecision?.model_names ?? []),
+        ]);
         const candidateResult = await ctx.runMutation(
           internal.releases.createOrSkipCandidate,
           {
@@ -99,19 +116,23 @@ export const pollDueSources = internalAction({
             sourceId: source.sourceId,
             sourceUrl: source.url,
             title: signal.title,
-            modelNames: signal.modelNames,
+            modelNames,
             releaseDate: undefined,
             gateResult: {
-              shouldSend: gateDecision.shouldSend,
-              reasons: gateDecision.reason ? [gateDecision.reason] : [],
+              shouldSend,
+              reasons: [
+                gateDecision.reason,
+                ...(classifierDecision ? [`classifier: ${classifierDecision.reason}`] : []),
+              ],
             },
             baseline: isBaseline,
             now: Date.now(),
           },
         );
 
-        // Skip — gate rejected, baseline run, or duplicate candidate
-        if (!gateDecision.shouldSend || isBaseline || !candidateResult.created) {
+        // Skip — deterministic gate rejected, AI classifier rejected/failed,
+        // baseline run, duplicate candidate, or production sends are disabled.
+        if (!shouldSend || isBaseline || !candidateResult.created || !telegramSendsEnabled) {
           continue;
         }
 
@@ -125,7 +146,7 @@ export const pollDueSources = internalAction({
           sourceLabel: source.label,
           confidence: signal.confidence,
           summary: signal.summary,
-          modelNames: signal.modelNames,
+          modelNames,
           alertKind: gateDecision.alertKind ?? "model_release",
           systemCard,
         }));
@@ -150,6 +171,57 @@ export const pollDueSources = internalAction({
     });
   },
 });
+
+async function classifyReleaseCandidate(input: {
+  title: string;
+  summary?: string;
+  url: string;
+}): Promise<ReleaseClassifierOutput> {
+  try {
+    const article = await extractArticle(input.url, {
+      timeoutMs: 15_000,
+      maxRetries: 1,
+      probeImages: false,
+    });
+    const tracker = new CostTracker(readClassifierCostCap());
+    const router = createLlmRouter({
+      deepseekApiKey: process.env.DEEPSEEK_API_KEY,
+      timeoutMs: 30_000,
+    });
+
+    return await runReleaseClassifier(
+      {
+        title: article.title ?? input.title,
+        articleText: [article.body, input.summary].filter(Boolean).join("\n\n"),
+      },
+      router,
+      tracker,
+    );
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`Release classification failed closed for ${input.url}: ${detail}`);
+    return {
+      is_new_model_release: false,
+      model_names: [],
+      reason: "Article fetch or release classification failed; treated as not a release.",
+    };
+  }
+}
+
+function readClassifierCostCap(): number {
+  const configured = Number(process.env.MODEL_RELEASES_MAX_COST_USD ?? "1");
+  return Number.isFinite(configured) && configured > 0 ? configured : 1;
+}
+
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const key = value.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 function toPollInput(source: {
   sourceId: string;

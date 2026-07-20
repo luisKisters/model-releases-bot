@@ -122,6 +122,20 @@ describe("evaluateArticleGate", () => {
     ).toMatchObject({ shouldSend: true, lab: "Google Gemini" });
   });
 
+  it("rejects a Gemini tutorial when only the URL contains launch language", () => {
+    expect(
+      evaluateArticleGate({
+        provider: "Google Gemini",
+        title: "5 ways to build a side hustle with Gemini",
+        url: "https://blog.google/products-and-platforms/products/gemini/launch-business-with-gemini/",
+      }),
+    ).toMatchObject({
+      shouldSend: false,
+      reason: "not_model_release",
+      lab: "Google Gemini",
+    });
+  });
+
   it("rejects Gemini catalog and docs pages without a dedicated official blog article", () => {
     expect(
       evaluateArticleGate({
@@ -626,7 +640,7 @@ describe("evaluateArticleGate", () => {
         title: "Grok for PowerPoint",
         url: "https://x.ai/news/introducing-powerpoint-addin",
       }),
-    ).toMatchObject({ shouldSend: false, reason: "not_model_release" });
+    ).toMatchObject({ shouldSend: false, reason: "lab_specific_requirement_failed" });
 
     expect(
       evaluateArticleGate({
