@@ -65,11 +65,14 @@ export default defineSchema({
   notifications: defineTable({
     signalFingerprint: v.optional(v.string()),
     releaseCandidateId: v.optional(v.id("releaseCandidates")),
+    releaseKey: v.optional(v.string()),
     channel: v.string(),
     status: v.string(),
     createdAt: v.number(),
     error: v.optional(v.string()),
-  }).index("by_created", ["createdAt"]),
+  })
+    .index("by_created", ["createdAt"])
+    .index("by_release_key", ["releaseKey"]),
 
   pollRuns: defineTable({
     startedAt: v.number(),
@@ -110,6 +113,22 @@ export default defineSchema({
     ),
     // Set to true on the first run so we never send old releases as new
     baseline: v.boolean(),
+    // Telegram delivery is a separate retryable outbox. Keeping it separate
+    // from verification means a temporary missing token cannot lose a release.
+    deliveryStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("sending"),
+        v.literal("sent"),
+        v.literal("duplicate"),
+        v.literal("failed"),
+      ),
+    ),
+    deliveryKey: v.optional(v.string()),
+    deliveryAttemptCount: v.optional(v.number()),
+    deliveryAttemptedAt: v.optional(v.number()),
+    deliveryNextAttemptAt: v.optional(v.number()),
+    deliveryError: v.optional(v.string()),
     processedAt: v.optional(v.number()),
     error: v.optional(v.string()),
   })

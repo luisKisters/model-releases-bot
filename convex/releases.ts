@@ -93,6 +93,14 @@ const verifierFindingInputValidator = v.object({
   severity: v.union(v.literal("block"), v.literal("warn")),
 });
 
+const deliveryStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("sending"),
+  v.literal("sent"),
+  v.literal("duplicate"),
+  v.literal("failed"),
+);
+
 // ─── Candidate queries ────────────────────────────────────────────────────────
 
 export const getCandidateByCanonicalUrl = internalQuery({
@@ -114,6 +122,37 @@ export const getPendingCandidates = internalQuery({
       .query("releaseCandidates")
       .withIndex("by_status", (q) => q.eq("status", "pending"))
       .take(args.limit);
+  },
+});
+
+export const getPendingApprovedDeliveries = internalQuery({
+  args: { now: v.number(), limit: v.number() },
+  handler: async (ctx, args) => {
+    const candidates = await ctx.db
+      .query("releaseCandidates")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .order("desc")
+      .take(200);
+
+    const due = candidates
+      .filter((candidate) =>
+        candidate.gateResult.shouldSend &&
+        !candidate.baseline &&
+        (candidate.deliveryStatus === "pending" || candidate.deliveryStatus === "failed") &&
+        (candidate.deliveryNextAttemptAt ?? 0) <= args.now,
+      )
+      .slice(0, Math.max(0, Math.min(args.limit, 25)));
+
+    return await Promise.all(due.map(async (candidate) => {
+      const source = await ctx.db
+        .query("sources")
+        .withIndex("by_source_id", (q) => q.eq("sourceId", candidate.sourceId))
+        .unique();
+      return {
+        ...candidate,
+        sourceLabel: source?.label ?? candidate.sourceId,
+      };
+    }));
   },
 });
 
@@ -150,6 +189,7 @@ export const createOrSkipCandidate = internalMutation({
     releaseDate: v.optional(v.string()),
     gateResult: gateResultValidator,
     baseline: v.boolean(),
+    deliveryKey: v.optional(v.string()),
     now: v.number(),
   },
   handler: async (ctx, args): Promise<{ id: Id<"releaseCandidates">; created: boolean }> => {
@@ -177,9 +217,118 @@ export const createOrSkipCandidate = internalMutation({
       gateResult: args.gateResult,
       status: "pending",
       baseline: args.baseline,
+      deliveryStatus: args.gateResult.shouldSend && !args.baseline ? "pending" : undefined,
+      deliveryKey: args.deliveryKey,
+      deliveryAttemptCount: 0,
     });
 
     return { id, created: true };
+  },
+});
+
+export const queueCandidateDelivery = internalMutation({
+  args: {
+    id: v.id("releaseCandidates"),
+    deliveryKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const candidate = await ctx.db.get(args.id);
+    if (!candidate || candidate.baseline || !candidate.gateResult.shouldSend) {
+      return false;
+    }
+    await ctx.db.patch(args.id, {
+      deliveryStatus: "pending",
+      deliveryKey: args.deliveryKey,
+      deliveryNextAttemptAt: 0,
+      deliveryError: "",
+    });
+    return true;
+  },
+});
+
+export const claimCandidateDelivery = internalMutation({
+  args: {
+    id: v.id("releaseCandidates"),
+    deliveryKey: v.string(),
+    now: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const candidate = await ctx.db.get(args.id);
+    if (
+      !candidate ||
+      candidate.baseline ||
+      !candidate.gateResult.shouldSend ||
+      (candidate.deliveryStatus !== "pending" && candidate.deliveryStatus !== "failed") ||
+      (candidate.deliveryNextAttemptAt ?? 0) > args.now
+    ) {
+      return { claimed: false as const, reason: "not_due" as const };
+    }
+
+    const receipts = await ctx.db
+      .query("notifications")
+      .withIndex("by_release_key", (q) => q.eq("releaseKey", args.deliveryKey))
+      .take(20);
+    if (receipts.some((receipt) => receipt.status === "sent")) {
+      await ctx.db.patch(args.id, {
+        deliveryStatus: "duplicate",
+        deliveryKey: args.deliveryKey,
+        deliveryAttemptedAt: args.now,
+        deliveryError: "Already sent from another official source.",
+      });
+      return { claimed: false as const, reason: "duplicate" as const };
+    }
+
+    const active = receipts.find((receipt) =>
+      receipt.status === "sending" && args.now - receipt.createdAt < 10 * 60_000,
+    );
+    if (active) {
+      return { claimed: false as const, reason: "busy" as const };
+    }
+
+    const receiptId = await ctx.db.insert("notifications", {
+      releaseCandidateId: args.id,
+      releaseKey: args.deliveryKey,
+      channel: "telegram",
+      status: "sending",
+      createdAt: args.now,
+    });
+    await ctx.db.patch(args.id, {
+      deliveryStatus: "sending",
+      deliveryKey: args.deliveryKey,
+      deliveryAttemptedAt: args.now,
+      deliveryAttemptCount: (candidate.deliveryAttemptCount ?? 0) + 1,
+      deliveryError: "",
+    });
+    return { claimed: true as const, receiptId };
+  },
+});
+
+export const finishCandidateDelivery = internalMutation({
+  args: {
+    id: v.id("releaseCandidates"),
+    receiptId: v.id("notifications"),
+    status: deliveryStatusValidator,
+    error: v.optional(v.string()),
+    now: v.number(),
+  },
+  handler: async (ctx, args) => {
+    if (args.status !== "sent" && args.status !== "failed") {
+      throw new Error(`Invalid terminal delivery status: ${args.status}`);
+    }
+    const candidate = await ctx.db.get(args.id);
+    const attempts = candidate?.deliveryAttemptCount ?? 1;
+    const retryDelayMs = Math.min(6 * 60 * 60_000, 5 * 60_000 * 2 ** Math.max(0, attempts - 1));
+    await ctx.db.patch(args.receiptId, {
+      status: args.status,
+      error: args.error,
+      createdAt: args.now,
+    });
+    await ctx.db.patch(args.id, {
+      deliveryStatus: args.status,
+      deliveryAttemptedAt: args.now,
+      deliveryNextAttemptAt: args.status === "failed" ? args.now + retryDelayMs : undefined,
+      deliveryError: args.error ?? "",
+    });
   },
 });
 

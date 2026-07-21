@@ -255,7 +255,103 @@ describe("release candidate persistence", () => {
     expect(candidate!.lab).toBe("DeepSeek");
     expect(candidate!.status).toBe("pending");
     expect(candidate!.baseline).toBe(false);
+    expect(candidate!.deliveryStatus).toBe("pending");
     expect(candidate!.modelNames).toEqual(["DeepSeek-V4-Pro", "DeepSeek-V4-Flash"]);
+  });
+
+  test("retries approved deliveries and deduplicates equivalent official sources", async () => {
+    const t = convexTest(schema, modules);
+    const deliveryKey = "google:gemini-3.6-flash";
+    const base = {
+      lab: "Google",
+      provider: "Google",
+      sourceUrl: "https://blog.google/rss/",
+      title: "Introducing Gemini 3.6 Flash",
+      modelNames: ["Gemini 3.6 Flash"],
+      gateResult: { shouldSend: true, reasons: ["approved"] },
+      baseline: false,
+      deliveryKey,
+    };
+    const first = await t.mutation(internal.releases.createOrSkipCandidate, {
+      ...base,
+      canonicalArticleUrl: "https://blog.google/gemini-3-6-flash/",
+      sourceId: "google-blog",
+      now: 1000,
+    });
+    const second = await t.mutation(internal.releases.createOrSkipCandidate, {
+      ...base,
+      canonicalArticleUrl: "https://deepmind.google/gemini-3-6-flash/",
+      sourceId: "deepmind-blog",
+      now: 1001,
+    });
+
+    const due = await t.query(internal.releases.getPendingApprovedDeliveries, {
+      now: 2000,
+      limit: 10,
+    });
+    expect(due).toHaveLength(2);
+
+    const firstClaim = await t.mutation(internal.releases.claimCandidateDelivery, {
+      id: first.id,
+      deliveryKey,
+      now: 2000,
+    });
+    expect(firstClaim.claimed).toBe(true);
+    if (!firstClaim.claimed) throw new Error("Expected the first delivery to be claimed");
+    await t.mutation(internal.releases.finishCandidateDelivery, {
+      id: first.id,
+      receiptId: firstClaim.receiptId,
+      status: "sent",
+      now: 2100,
+    });
+
+    const duplicateClaim = await t.mutation(internal.releases.claimCandidateDelivery, {
+      id: second.id,
+      deliveryKey,
+      now: 2200,
+    });
+    expect(duplicateClaim).toEqual({ claimed: false, reason: "duplicate" });
+    const duplicate = await t.query(internal.releases.getCandidateById, { id: second.id });
+    expect(duplicate!.deliveryStatus).toBe("duplicate");
+  });
+
+  test("failed delivery becomes due again after exponential backoff", async () => {
+    const t = convexTest(schema, modules);
+    const candidate = await t.mutation(internal.releases.createOrSkipCandidate, {
+      canonicalArticleUrl: "https://qwen.ai/blog/qwen-next",
+      lab: "Qwen",
+      provider: "Qwen",
+      sourceId: "qwen-blog",
+      sourceUrl: "https://qwen.ai/blog",
+      title: "Qwen Next",
+      modelNames: ["Qwen Next"],
+      gateResult: { shouldSend: true, reasons: ["approved"] },
+      baseline: false,
+      deliveryKey: "qwen:qwen-next",
+      now: 1000,
+    });
+    const claim = await t.mutation(internal.releases.claimCandidateDelivery, {
+      id: candidate.id,
+      deliveryKey: "qwen:qwen-next",
+      now: 2000,
+    });
+    if (!claim.claimed) throw new Error("Expected delivery to be claimed");
+    await t.mutation(internal.releases.finishCandidateDelivery, {
+      id: candidate.id,
+      receiptId: claim.receiptId,
+      status: "failed",
+      error: "temporary Telegram failure",
+      now: 2100,
+    });
+
+    expect(await t.query(internal.releases.getPendingApprovedDeliveries, {
+      now: 2100 + 5 * 60_000 - 1,
+      limit: 10,
+    })).toHaveLength(0);
+    expect(await t.query(internal.releases.getPendingApprovedDeliveries, {
+      now: 2100 + 5 * 60_000,
+      limit: 10,
+    })).toHaveLength(1);
   });
 
   test("duplicate candidate creation is skipped", async () => {

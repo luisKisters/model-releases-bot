@@ -227,53 +227,10 @@ if (!ok) process.exitCode = 1;
 // ─── Full live pipeline for a single URL ─────────────────────────────────────
 
 async function runReleasePipeline(url, { dryRun, sendTg, maxCostUsd, requireBrowser, requireLlm, requireArtificialAnalysis }) {
-  // --- Article gate (detect provider from URL domain) ---
+  // Resolve the provider from the URL now, but defer the article gate until
+  // after extraction. The gate intentionally ignores URL release words, so
+  // passing the raw URL as its title caused genuine live releases to fail.
   const detectedProvider = extractLabFromUrl(url);
-  const gateResult = evaluateArticleGate({ provider: detectedProvider, title: url, url });
-  if (!gateResult.shouldSend) {
-    return {
-      ok: false,
-      status: "gate_rejected",
-      reason: "article_gate_rejected",
-      gateReason: gateResult.reason,
-      gateChecks: gateResult.checks,
-      releaseUrl: url,
-      dryRun,
-      secretStatus,
-      estimatedCostUsd: 0,
-      detail: `Article gate rejected: ${gateResult.reason}`,
-    };
-  }
-
-  // --- LLM secrets check ---
-  const llmSecretsPresent = secretStatus.deepseek && secretStatus.openrouter;
-  if (!llmSecretsPresent) {
-    if (requireLlm) {
-      return {
-        ok: false,
-        status: "failed",
-        reason: "missing_required_llm_secrets",
-        releaseUrl: url,
-        dryRun,
-        secretStatus,
-        estimatedCostUsd: 0,
-        missingSecrets: missingSecrets.filter((s) => s.includes("DEEPSEEK") || s.includes("OPENROUTER")),
-        detail: "--require-llm was set but LLM secrets are missing.",
-      };
-    }
-    return {
-      ok: true,
-      status: "skipped",
-      reason: "missing_llm_secrets",
-      releaseUrl: url,
-      dryRun,
-      secretStatus,
-      estimatedCostUsd: 0,
-      missingSecrets: missingSecrets.filter((s) => s.includes("DEEPSEEK") || s.includes("OPENROUTER")),
-      gateDecision: gateResult,
-      detail: "LLM keys not present. Full pipeline requires DEEPSEEK_API_KEY and OPENROUTER_API_KEY.",
-    };
-  }
 
   const tracker = new CostTracker(maxCostUsd);
 
@@ -328,6 +285,58 @@ async function runReleasePipeline(url, { dryRun, sendTg, maxCostUsd, requireBrow
         estimatedCostUsd: tracker.totalCostUsd,
         missingBrowserReason: article.missingBrowserReason,
         detail: "--require-browser was set but browser extraction is not available.",
+      };
+    }
+
+    // --- Article gate (using human-visible article metadata) ---
+    const gateResult = evaluateArticleGate({
+      provider: detectedProvider,
+      title: article.title ?? "",
+      url: article.canonicalUrl ?? article.finalUrl ?? url,
+      summary: article.body?.slice(0, 2_000),
+    });
+    if (!gateResult.shouldSend) {
+      return {
+        ok: false,
+        status: "gate_rejected",
+        reason: "article_gate_rejected",
+        gateReason: gateResult.reason,
+        gateChecks: gateResult.checks,
+        releaseUrl: url,
+        dryRun,
+        secretStatus,
+        estimatedCostUsd: tracker.totalCostUsd,
+        detail: `Article gate rejected: ${gateResult.reason}`,
+      };
+    }
+
+    // --- LLM secrets check ---
+    const llmSecretsPresent = secretStatus.deepseek && secretStatus.openrouter;
+    if (!llmSecretsPresent) {
+      if (requireLlm) {
+        return {
+          ok: false,
+          status: "failed",
+          reason: "missing_required_llm_secrets",
+          releaseUrl: url,
+          dryRun,
+          secretStatus,
+          estimatedCostUsd: tracker.totalCostUsd,
+          missingSecrets: missingSecrets.filter((s) => s.includes("DEEPSEEK") || s.includes("OPENROUTER")),
+          detail: "--require-llm was set but LLM secrets are missing.",
+        };
+      }
+      return {
+        ok: true,
+        status: "skipped",
+        reason: "missing_llm_secrets",
+        releaseUrl: url,
+        dryRun,
+        secretStatus,
+        estimatedCostUsd: tracker.totalCostUsd,
+        missingSecrets: missingSecrets.filter((s) => s.includes("DEEPSEEK") || s.includes("OPENROUTER")),
+        gateDecision: gateResult,
+        detail: "LLM keys not present. Full pipeline requires DEEPSEEK_API_KEY and OPENROUTER_API_KEY.",
       };
     }
 

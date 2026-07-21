@@ -1,4 +1,5 @@
 import { internalAction } from "./_generated/server";
+import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { pollSource } from "../src/lib/radar/poller";
 import { sourceRegistry } from "../src/lib/radar/sources";
@@ -130,38 +131,19 @@ export const pollDueSources = internalAction({
               ],
             },
             baseline: isBaseline,
+            deliveryKey: buildReleaseDeliveryKey(source.provider, modelNames, signal.title),
             now: Date.now(),
           },
         );
 
-        // Skip — deterministic gate rejected, AI classifier rejected/failed,
-        // baseline run, duplicate candidate, or production sends are disabled.
-        if (!shouldSend || isBaseline || !candidateResult.created || !telegramSendsEnabled) {
-          continue;
-        }
-
-        notificationAttempts += 1;
-        lastTelegramSendAt = await waitForTelegramPace(lastTelegramSendAt);
-        const systemCard = await inspectSystemCard(signal.url);
-        const sent = await sendTelegramMarkdownMessage(formatTelegramSignal({
-          provider: source.provider,
-          title: signal.title,
-          url: signal.url,
-          sourceLabel: source.label,
-          confidence: signal.confidence,
-          summary: signal.summary,
-          modelNames,
-          alertKind: gateDecision.alertKind ?? "model_release",
-          systemCard,
-        }));
-        await ctx.runMutation(internal.registry.recordNotification, {
-          fingerprint: signal.fingerprint,
-          channel: "telegram",
-          status: sent.ok ? "sent" : "failed",
-          error: sent.error,
-          now: Date.now(),
-        });
+        void candidateResult;
       }
+    }
+
+    if (telegramSendsEnabled) {
+      const delivery = await deliverApprovedCandidates(ctx, lastTelegramSendAt);
+      notificationAttempts += delivery.attempts;
+      lastTelegramSendAt = delivery.lastTelegramSendAt;
     }
 
     await ctx.runMutation(internal.registry.finishPollRun, {
@@ -175,6 +157,54 @@ export const pollDueSources = internalAction({
     });
   },
 });
+
+async function deliverApprovedCandidates(
+  ctx: ActionCtx,
+  lastTelegramSendAt: number,
+) {
+  const candidates = await ctx.runQuery(internal.releases.getPendingApprovedDeliveries, {
+    now: Date.now(),
+    limit: 12,
+  });
+  let attempts = 0;
+
+  for (const candidate of candidates) {
+    const deliveryKey = candidate.deliveryKey ?? buildReleaseDeliveryKey(
+      candidate.provider,
+      candidate.modelNames,
+      candidate.title,
+    );
+    const claim = await ctx.runMutation(internal.releases.claimCandidateDelivery, {
+      id: candidate._id,
+      deliveryKey,
+      now: Date.now(),
+    });
+    if (!claim.claimed) continue;
+
+    attempts += 1;
+    lastTelegramSendAt = await waitForTelegramPace(lastTelegramSendAt);
+    const systemCard = await inspectSystemCard(candidate.canonicalArticleUrl);
+    const sent = await sendTelegramMarkdownMessage(formatTelegramSignal({
+      provider: candidate.provider,
+      title: candidate.title,
+      url: candidate.canonicalArticleUrl,
+      sourceLabel: candidate.sourceLabel,
+      confidence: "official_release",
+      modelNames: candidate.modelNames,
+      alertKind: "model_release",
+      systemCard,
+    }));
+    await ctx.runMutation(internal.releases.finishCandidateDelivery, {
+      id: candidate._id,
+      receiptId: claim.receiptId,
+      status: sent.ok ? "sent" : "failed",
+      error: sent.error,
+      now: Date.now(),
+    });
+  }
+
+  return { attempts, lastTelegramSendAt };
+}
 
 async function classifyReleaseCandidate(input: {
   title: string;
@@ -229,6 +259,24 @@ function uniqueStrings(values: string[]): string[] {
     seen.add(key);
     return true;
   });
+}
+
+function buildReleaseDeliveryKey(provider: string, modelNames: string[], title: string): string {
+  const normalizedProvider = normalizeDeliveryPart(provider);
+  const genericNames = new Set([normalizedProvider, "gemini", "qwen", "claude", "gpt"]);
+  const models = uniqueStrings(modelNames)
+    .map(normalizeDeliveryPart)
+    .filter((name) => name && !genericNames.has(name))
+    .sort();
+  const identity = models.length > 0 ? models.join("|") : normalizeDeliveryPart(title);
+  return `${normalizedProvider}:${identity}`;
+}
+
+function normalizeDeliveryPart(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function toPollInput(source: {
